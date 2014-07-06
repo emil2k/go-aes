@@ -18,3 +18,19 @@ func TestWordInvRot(t *testing.T) {
 		t.Errorf("Inverse rotation failed with %v", w)
 	}
 }
+
+func TestWordSub(t *testing.T) {
+	w := Word([]byte{0xC3, 0x89, 0xAF, 0xF8})
+	w.Sub()
+	if !bytes.Equal(w, []byte{0x2E, 0xA7, 0x79, 0x41}) {
+		t.Errorf("Substitution failed with %v", w)
+	}
+}
+
+func TestWordInvSub(t *testing.T) {
+	w := Word([]byte{0x2E, 0xA7, 0x79, 0x41})
+	w.InvSub()
+	if !bytes.Equal(w, []byte{0xC3, 0x89, 0xAF, 0xF8}) {
+		t.Errorf("Substitution failed with %v", w)
+	}
+}
