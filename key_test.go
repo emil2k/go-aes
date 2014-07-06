@@ -34,3 +34,12 @@ func TestWordInvSub(t *testing.T) {
 		t.Errorf("Substitution failed with %v", w)
 	}
 }
+
+func TestWordXor(t *testing.T) {
+	w := Word([]byte{0x2E, 0xA7, 0x79, 0x41})
+	xor := Word([]byte{0x2E, 0xA7, 0x79})
+	w.Xor(xor)
+	if !bytes.Equal(w, []byte{0x00, 0x00, 0x00, 0x41}) {
+		t.Errorf("Xor failed with %v", w)
+	}
+}
