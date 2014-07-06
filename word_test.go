@@ -1,4 +1,4 @@
-package key
+package word
 
 import "bytes"
 import "testing"
