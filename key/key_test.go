@@ -1,0 +1,66 @@
+package key
+
+import (
+	"bytes"
+	"fmt"
+)
+import "testing"
+
+func TestGetWord(t *testing.T) {
+	ck := []byte{0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c} // cipher key
+	k := NewKey(4, &ck)
+	if w0 := k.GetWord(0); !bytes.Equal(w0, []byte{0x2b, 0x7e, 0x15, 0x16}) {
+		t.Errorf("Get word failed with %v", w0)
+	}
+	if w1 := k.GetWord(1); !bytes.Equal(w1, []byte{0x28, 0xae, 0xd2, 0xa6}) {
+		t.Errorf("Get word failed with %v", w1)
+	}
+}
+
+// assertWord asserts that the ith word in a key equals the passed byte slice
+func assertWord(t *testing.T, k *Key, i int, out []byte) {
+	if w := k.GetWord(i); !bytes.Equal(w, out) {
+		t.Errorf("Word assertion failed with %v at %d, wanted %v.", w, i, out)
+	}
+}
+
+func TestExpand128(t *testing.T) {
+	ck := []byte{0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c} // cipher key
+	k := NewKey(4, &ck)
+	k.Expand()
+	assertWord(t, k, 4, []byte{0xa0, 0xfa, 0xfe, 0x17})
+	k.Expand()
+	assertWord(t, k, 11, []byte{0x73, 0x59, 0xf6, 0x7f})
+}
+
+func ExampleExpansion128() {
+	ck := []byte{0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c} // cipher key
+	k := NewKey(4, &ck)
+	k.Expand()
+	k.Expand()
+	fmt.Println(k)
+	// Output:
+	// Key with Nk 4 on iteration 12, with 48 bytes :
+	//
+	// w0 : 2b7e1516
+	// w1 : 28aed2a6
+	// w2 : abf71588
+	// w3 : 09cf4f3c
+	// w4 : a0fafe17
+	// w5 : 88542cb1
+	// w6 : 23a33939
+	// w7 : 2a6c7605
+	// w8 : f2c295f2
+	// w9 : 7a96b943
+	// w10 : 5935807a
+	// w11 : 7359f67f
+}
+
+func TestExpand192(t *testing.T) {
+	ck := []byte{0x8e, 0x73, 0xb0, 0xf7, 0xda, 0x0e, 0x64, 0x52, 0xc8, 0x10, 0xf3, 0x2b, 0x80, 0x90, 0x79, 0xe5, 0x62, 0xf8, 0xea, 0xd2, 0x52, 0x2c, 0x6b, 0x7b}
+	k := NewKey(6, &ck)
+	k.Expand()
+	assertWord(t, k, 6, []byte{0xfe, 0x0c, 0x91, 0xf7})
+	k.Expand()
+	assertWord(t, k, 17, []byte{0xbb, 0x09, 0x53, 0x86})
+}
