@@ -38,6 +38,8 @@ func (k *Key) Expand() {
 			t.Sub()
 			rcon := word.Word([]byte{Rcon(k.i / k.nk)})
 			t.Xor(rcon)
+		} else if k.nk == 8 && k.i%k.nk == 4 { //  extra step for 256 bit keys
+			t.Sub()
 		}
 		lr := k.GetWord(k.i - k.nk)
 		t.Xor(lr)
