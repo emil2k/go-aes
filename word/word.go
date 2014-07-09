@@ -10,21 +10,21 @@ func (w Word) String() string {
 	return fmt.Sprintf("%x", []byte(w))
 }
 
-// Rot rotates a Word's bytes down
-func (w Word) Rot() {
+// Rot rotates a Word's bytes down by j spots
+func (w Word) Rot(j int) {
 	t := make([]byte, len(w))
 	copy(t, w)
 	for i, v := range t {
-		w[(i+len(w)-1)%len(w)] = v
+		w[(i+len(w)-j)%len(w)] = v
 	}
 }
 
-// InvRot rotates a Word's bytes up, inverse of Rot
-func (w Word) InvRot() {
+// InvRot rotates a Word's bytes up by j spots, inverse of Rot
+func (w Word) InvRot(j int) {
 	t := make([]byte, len(w))
 	copy(t, w)
 	for i, v := range t {
-		w[(i+1)%len(w)] = v
+		w[(i+j)%len(w)] = v
 	}
 }
 

@@ -34,7 +34,7 @@ func (k *Key) Expand() {
 	for start := k.i; k.i == start || k.i%k.nk != 0; k.i++ {
 		t := k.GetWord(k.i - 1)
 		if k.i%k.nk == 0 {
-			t.Rot()
+			t.Rot(1)
 			t.Sub()
 			rcon := word.Word([]byte{Rcon(k.i / k.nk)})
 			t.Xor(rcon)
