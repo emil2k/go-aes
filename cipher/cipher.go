@@ -13,8 +13,17 @@ type Cipher struct {
 	r     int         // keeps track of the current round
 }
 
+// NewCipher constructs a new cipher loading the initial state with the input
+func NewCipher(nk int, nr int, in []byte, ck []byte) *Cipher {
+	return &Cipher{
+		key:   *key.NewKey(nk, ck),
+		state: state.State(in),
+		nr:    nr,
+	}
+}
+
 // String provides a string representation of the currest cipher state
-func (c *Cipher) String() string {
+func (c Cipher) String() string {
 	return c.state.String()
 }
 
@@ -35,9 +44,20 @@ func (c *Cipher) GetRoundKey() []byte {
 	return out
 }
 
-func Encrypt(in []byte, ck []byte) []byte {
-	// TODO
-	return []byte{}
+func Encrypt(nk int, nr int, in []byte, ck []byte) []byte {
+	c := NewCipher(nk, nr, in, ck)
+	c.AddRoundKey()
+	for c.r < c.nr {
+		c.state.Sub()
+		c.state.Shift()
+		c.state.Mix()
+		c.AddRoundKey()
+	}
+	// Don't mix columns on the last round
+	c.state.Sub()
+	c.state.Shift()
+	c.AddRoundKey()
+	return c.state
 }
 
 func Decrypt(c []byte, ck []byte) []byte {

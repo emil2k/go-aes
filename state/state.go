@@ -12,7 +12,7 @@ import (
 type State []byte
 
 // String provides a string representation of a State
-func (s *State) String() string {
+func (s State) String() string {
 	var out string
 	for j := 0; j < 4; j++ {
 		out += fmt.Sprintf("%v ", word.Word(s.GetRow(j)))
@@ -36,7 +36,7 @@ func (s *State) Shift() {
 	for j := 1; j < 4; j++ {
 		row := s.GetRow(j)
 		word.Word(row).Rot(j)
-		s.SetRow(j, &row)
+		s.SetRow(j, row)
 	}
 }
 
@@ -45,7 +45,7 @@ func (s *State) InvShift() {
 	for j := 1; j < 4; j++ {
 		row := s.GetRow(j)
 		word.Word(row).InvRot(j)
-		s.SetRow(j, &row)
+		s.SetRow(j, row)
 	}
 }
 
@@ -72,7 +72,7 @@ func (s *State) MixCol(i int) {
 	t[1] = rj.Sum(col[0], rj.Mul(0x02, col[1]), rj.Mul(0x03, col[2]), col[3])
 	t[2] = rj.Sum(col[0], col[1], rj.Mul(0x02, col[2]), rj.Mul(0x03, col[3]))
 	t[3] = rj.Sum(rj.Mul(0x03, col[0]), col[1], col[2], rj.Mul(0x02, col[3]))
-	s.SetCol(i, &t)
+	s.SetCol(i, t)
 }
 
 // InvMixCol reverses the mixing of the ith column
@@ -84,7 +84,7 @@ func (s *State) InvMixCol(i int) {
 	t[1] = rj.Sum(rj.Mul(0x09, col[0]), rj.Mul(0x0e, col[1]), rj.Mul(0x0b, col[2]), rj.Mul(0x0d, col[3]))
 	t[2] = rj.Sum(rj.Mul(0x0d, col[0]), rj.Mul(0x09, col[1]), rj.Mul(0x0e, col[2]), rj.Mul(0x0b, col[3]))
 	t[3] = rj.Sum(rj.Mul(0x0b, col[0]), rj.Mul(0x0d, col[1]), rj.Mul(0x09, col[2]), rj.Mul(0x0e, col[3]))
-	s.SetCol(i, &t)
+	s.SetCol(i, t)
 }
 
 // Xor xors input with the bytes in the state
@@ -101,8 +101,8 @@ func (s *State) GetCol(i int) []byte {
 }
 
 // SetCol sets the ith column in the state
-func (s *State) SetCol(i int, col *[]byte) {
-	copy((*s)[i*4:i*4+4], *col)
+func (s *State) SetCol(i int, col []byte) {
+	copy((*s)[i*4:i*4+4], col)
 }
 
 // GetRow gets the ith row in the state
@@ -115,8 +115,8 @@ func (s *State) GetRow(i int) []byte {
 }
 
 // SetRow sets the ith row in the state
-func (s *State) SetRow(i int, row *[]byte) {
+func (s *State) SetRow(i int, row []byte) {
 	for j := 0; j < 4; j++ {
-		(*s)[j*4+i] = (*row)[j]
+		(*s)[j*4+i] = row[j]
 	}
 }

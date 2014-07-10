@@ -11,7 +11,7 @@ type Key struct {
 }
 
 // String provides a string representation of a Key
-func (k *Key) String() string {
+func (k Key) String() string {
 	out := fmt.Sprintf("Key with Nk %d on iteration %d, with %d bytes :\n", k.nk, k.i, len(k.Data))
 	for i := 0; i < len(k.Data)/4; i++ {
 		out += fmt.Sprintf("\nw%d : ", i)
@@ -22,10 +22,10 @@ func (k *Key) String() string {
 }
 
 // NewKey constructs a Key object by seeding it with a cipher key and setting Nk
-func NewKey(nk int, seed *[]byte) *Key {
-	k := Key{i: 0, nk: nk, Data: make([]byte, len(*seed))}
-	copy(k.Data, *seed) // seed the key
-	k.i = len(*seed) / 4
+func NewKey(nk int, seed []byte) *Key {
+	k := Key{i: 0, nk: nk, Data: make([]byte, len(seed))}
+	copy(k.Data, seed) // seed the key
+	k.i = len(seed) / 4
 	return &k
 }
 
