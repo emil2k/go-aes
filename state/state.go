@@ -3,6 +3,7 @@ package state
 import (
 	"fmt"
 
+	rj "github.com/emil2k/aes/rijndael"
 	"github.com/emil2k/aes/word"
 )
 
@@ -14,7 +15,7 @@ type State []byte
 func (s *State) String() string {
 	var out string
 	for j := 0; j < 4; j++ {
-		out += fmt.Sprintf("%v \n", word.Word(s.GetRow(j)).String())
+		out += fmt.Sprintf("%v ", word.Word(s.GetRow(j)))
 	}
 	return out
 }
@@ -46,6 +47,37 @@ func (s *State) InvShift() {
 		word.Word(row).InvRot(j)
 		s.SetRow(j, &row)
 	}
+}
+
+// Mix mixes all the columns of the state
+func (s *State) Mix() {
+	for i := 0; i < 4; i++ {
+		s.MixCol(i)
+	}
+}
+
+// MixCol mixes the ith column in the state
+// multiples the column modulo x^4+1 by the {03}x^3 + {01}x^2 + {01}x + {02}
+func (s *State) MixCol(i int) {
+	t := make([]byte, 4)
+	col := s.GetCol(i)
+	t[0] = rj.Sum(rj.Mul(0x02, col[0]), rj.Mul(0x03, col[1]), col[2], col[3])
+	t[1] = rj.Sum(col[0], rj.Mul(0x02, col[1]), rj.Mul(0x03, col[2]), col[3])
+	t[2] = rj.Sum(col[0], col[1], rj.Mul(0x02, col[2]), rj.Mul(0x03, col[3]))
+	t[3] = rj.Sum(rj.Mul(0x03, col[0]), col[1], col[2], rj.Mul(0x02, col[3]))
+	s.SetCol(i, &t)
+}
+
+// GetCol gets the ith column in the state
+func (s *State) GetCol(i int) []byte {
+	col := make([]byte, 4)
+	copy(col, (*s)[i*4:i*4+4])
+	return col
+}
+
+// SetCol sets the ith column in the state
+func (s *State) SetCol(i int, col *[]byte) {
+	copy((*s)[i*4:i*4+4], *col)
 }
 
 // GetRow gets the ith row in the state
