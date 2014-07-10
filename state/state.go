@@ -87,6 +87,12 @@ func (s *State) InvMixCol(i int) {
 	s.SetCol(i, &t)
 }
 
+// Xor xors input with the bytes in the state
+// relies on Word.Xor function
+func (s *State) Xor(input []byte) {
+	word.Word(*s).Xor(input)
+}
+
 // GetCol gets the ith column in the state
 func (s *State) GetCol(i int) []byte {
 	col := make([]byte, 4)

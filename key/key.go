@@ -7,13 +7,13 @@ import "github.com/emil2k/aes/word"
 type Key struct {
 	i    int    // keeps track of iteration during key expansion
 	nk   int    // number of 4 byte column in the key, i.e. 4 for 128 bit
-	data []byte // byte representing the key
+	Data []byte // byte representing the key
 }
 
 // String provides a string representation of a Key
 func (k *Key) String() string {
-	out := fmt.Sprintf("Key with Nk %d on iteration %d, with %d bytes :\n", k.nk, k.i, len(k.data))
-	for i := 0; i < len(k.data)/4; i++ {
+	out := fmt.Sprintf("Key with Nk %d on iteration %d, with %d bytes :\n", k.nk, k.i, len(k.Data))
+	for i := 0; i < len(k.Data)/4; i++ {
 		out += fmt.Sprintf("\nw%d : ", i)
 		out += k.GetWord(i).String()
 	}
@@ -23,8 +23,8 @@ func (k *Key) String() string {
 
 // NewKey constructs a Key object by seeding it with a cipher key and setting Nk
 func NewKey(nk int, seed *[]byte) *Key {
-	k := Key{i: 0, nk: nk, data: make([]byte, len(*seed))}
-	copy(k.data, *seed) // seed the key
+	k := Key{i: 0, nk: nk, Data: make([]byte, len(*seed))}
+	copy(k.Data, *seed) // seed the key
 	k.i = len(*seed) / 4
 	return &k
 }
@@ -43,7 +43,7 @@ func (k *Key) Expand() {
 		}
 		lr := k.GetWord(k.i - k.nk)
 		t.Xor(lr)
-		k.data = append(k.data, t...)
+		k.Data = append(k.Data, t...)
 	}
 }
 
@@ -51,7 +51,7 @@ func (k *Key) Expand() {
 // copies word into a slice with a new underlying array
 func (k *Key) GetWord(i int) word.Word {
 	w := make([]byte, 4)
-	copy(w, k.data[i*4:i*4+4])
+	copy(w, k.Data[i*4:i*4+4])
 	return word.Word(w)
 }
 
