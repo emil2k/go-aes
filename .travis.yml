@@ -3,7 +3,10 @@ go:
         - tip
 before_install:
         - go get github.com/axw/gocov/gocov
+        - go get github.com/modocache/gover
         - go get github.com/mattn/goveralls
         - go get code.google.com/p/go.tools/cmd/cover
 script:
-        - $HOME/gopath/bin/goveralls -repotoken Q7QzTw90aKE1t0u0tiG9QPtZG2sdSAngY
+        - go test ./...
+        - $HOME/gopath/bin/gover
+        - $HOME/gopath/bin/goveralls -coverprofile=gover.coverprofile -service travis-ci -repotoken Q7QzTw90aKE1t0u0tiG9QPtZG2sdSAngY
