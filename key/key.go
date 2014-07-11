@@ -1,7 +1,7 @@
 package key
 
 import "fmt"
-import "github.com/emil2k/aes/word"
+import "github.com/emil2k/go-aes/word"
 
 // Key represents a key and maintains the state of while a cipher key is expanded
 type Key struct {

@@ -1,8 +1,8 @@
 package cipher
 
 import (
-	"github.com/emil2k/aes/key"
-	"github.com/emil2k/aes/state"
+	"github.com/emil2k/go-aes/key"
+	"github.com/emil2k/go-aes/state"
 )
 
 // Cipher keeps the state of encyption or decryption

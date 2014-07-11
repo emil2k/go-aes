@@ -4,8 +4,8 @@ import (
 	"bytes"
 	"testing"
 
-	"github.com/emil2k/aes/key"
-	"github.com/emil2k/aes/state"
+	"github.com/emil2k/go-aes/key"
+	"github.com/emil2k/go-aes/state"
 )
 
 func TestAddRoundKey(t *testing.T) {
