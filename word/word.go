@@ -7,7 +7,11 @@ type Word []byte
 
 // String provides a string representation of a Word
 func (w Word) String() string {
-	return fmt.Sprintf("%x", []byte(w))
+	var out string
+	for _, b := range w {
+		out += fmt.Sprintf("%x ", b)
+	}
+	return out
 }
 
 // Rot rotates a Word's bytes down by j spots

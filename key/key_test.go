@@ -2,9 +2,19 @@ package key
 
 import (
 	"bytes"
-	"fmt"
 	"testing"
 )
+
+func TestKeyString(t *testing.T) {
+	ck := []byte{0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c} // cipher key
+	k := NewKey(4, ck)
+	k.Expand()
+	k.Expand()
+	out := "2b 7e 15 16 28 ae d2 a6 ab f7 15 88 9 cf 4f 3c a0 fa fe 17 88 54 2c b1 23 a3 39 39 2a 6c 76 5 f2 c2 95 f2 7a 96 b9 43 59 35 80 7a 73 59 f6 7f "
+	if x := k.String(); x != out {
+		t.Errorf("Key stringify failed with %s", x)
+	}
+}
 
 func TestGetWord(t *testing.T) {
 	ck := []byte{0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c} // cipher key
@@ -31,29 +41,6 @@ func TestExpand128(t *testing.T) {
 	assertWord(t, k, 4, []byte{0xa0, 0xfa, 0xfe, 0x17})
 	k.Expand()
 	assertWord(t, k, 11, []byte{0x73, 0x59, 0xf6, 0x7f})
-}
-
-func ExampleExpansion128() {
-	ck := []byte{0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c} // cipher key
-	k := NewKey(4, ck)
-	k.Expand()
-	k.Expand()
-	fmt.Println(k)
-	// Output:
-	// Key with Nk 4 on iteration 12, with 48 bytes :
-	//
-	// w0 : 2b7e1516
-	// w1 : 28aed2a6
-	// w2 : abf71588
-	// w3 : 09cf4f3c
-	// w4 : a0fafe17
-	// w5 : 88542cb1
-	// w6 : 23a33939
-	// w7 : 2a6c7605
-	// w8 : f2c295f2
-	// w9 : 7a96b943
-	// w10 : 5935807a
-	// w11 : 7359f67f
 }
 
 func TestExpand192(t *testing.T) {

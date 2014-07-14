@@ -29,3 +29,11 @@ func TestMul(t *testing.T) {
 		t.Errorf("Rijndael field multiplication failed with %v", c)
 	}
 }
+
+func TestBstring(t *testing.T) {
+	b := byte(0x8A)
+	bs := "8a : 10001010"
+	if out := bstring(b); out != bs {
+		t.Errorf("Binary string failed with %s", out)
+	}
+}

@@ -12,12 +12,10 @@ type Key struct {
 
 // String provides a string representation of a Key
 func (k Key) String() string {
-	out := fmt.Sprintf("Key with Nk %d on iteration %d, with %d bytes :\n", k.nk, k.i, len(k.Data))
-	for i := 0; i < len(k.Data)/4; i++ {
-		out += fmt.Sprintf("\nw%d : ", i)
-		out += k.GetWord(i).String()
+	var out string
+	for _, b := range k.Data {
+		out += fmt.Sprintf("%x ", b)
 	}
-	out += "\n"
 	return out
 }
 

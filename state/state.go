@@ -14,8 +14,8 @@ type State []byte
 // String provides a string representation of a State
 func (s State) String() string {
 	var out string
-	for j := 0; j < 4; j++ {
-		out += fmt.Sprintf("%v ", word.Word(s.GetRow(j)))
+	for _, b := range s {
+		out += fmt.Sprintf("%x ", b)
 	}
 	return out
 }

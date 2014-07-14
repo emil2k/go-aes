@@ -3,6 +3,14 @@ package word
 import "bytes"
 import "testing"
 
+func TestWordString(t *testing.T) {
+	w := Word([]byte{0x90, 0x01, 0x02, 0x03})
+	out := "90 1 2 3 "
+	if x := w.String(); x != out {
+		t.Errorf("Word stringify failed with %s", x)
+	}
+}
+
 func TestWordRot(t *testing.T) {
 	w := Word([]byte{0x90, 0x01, 0x02, 0x03})
 	w.Rot(1)
