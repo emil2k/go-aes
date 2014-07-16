@@ -3,6 +3,8 @@ package ctr
 import (
 	"crypto/rand"
 	"fmt"
+	"io/ioutil"
+	"log"
 )
 import "github.com/emil2k/go-aes/cipher"
 
@@ -16,11 +18,19 @@ type Counter struct {
 	ck        []byte         // cipher key
 	in        []byte         // input plain or cipher text
 	out       []byte         // output cipher or plain text
+	ErrorLog  *log.Logger    // log for errors
+	InfoLog   *log.Logger    // log for non-verbose output
+	DebugLog  *log.Logger    // log for verbose output
 }
 
 // NewCounter creates a new counter with the given Cipher instance
 func NewCounter(cipher *cipher.Cipher) *Counter {
-	return &Counter{cipher: cipher}
+	return &Counter{
+		cipher:   cipher,
+		ErrorLog: log.New(ioutil.Discard, "", 0),
+		InfoLog:  log.New(ioutil.Discard, "", 0),
+		DebugLog: log.New(ioutil.Discard, "", 0),
+	}
 }
 
 // initCounter initializes a counter either for encryption or decryption
@@ -33,7 +43,7 @@ func (c *Counter) initCounter(in []byte, ck []byte, nonce []byte, isDecrypt bool
 	c.isDecrypt = isDecrypt
 }
 
-// Encrypt encrypts the input using CTR mode with 128-bit AES as the block cipher
+// Encrypt encrypts the input using CTR mode
 func (c *Counter) Encrypt(in []byte, ck []byte, nonce []byte) []byte {
 	c.initCounter(in, ck, nonce, false)
 	c.addPadding()
@@ -50,7 +60,7 @@ func (c *Counter) Encrypt(in []byte, ck []byte, nonce []byte) []byte {
 	return c.out
 }
 
-// Decrypt decrypts the input using CTR mode with 128-bit AES as the cipher block
+// Decrypt decrypts the input using CTR mode
 func (c *Counter) Decrypt(in []byte, ck []byte, nonce []byte) []byte {
 	c.initCounter(in, ck, nonce, true)
 	blocks := len(c.in) / 16

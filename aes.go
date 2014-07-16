@@ -14,23 +14,39 @@ import (
 	"github.com/emil2k/go-aes/state"
 )
 
+// Logs
+var errorLog *log.Logger = log.New(os.Stderr, "errror : ", 0)
+var infoLog *log.Logger = log.New(os.Stdout, "info : ", 0)
+var debugLog *log.Logger = log.New(os.Stdout, "debug : ", 0)
+
 // Command line arguments
 var verbose bool
+var veryVerbose bool
 var mode string
 
 func main() {
-	flag.BoolVar(&verbose, "v", false, "verbose output")
-	flag.StringVar(&mode, "mode", "ctr", "block cipher mode, `ctr` for counter mode.")
+	// Parse command flags
+	flag.BoolVar(&verbose, "v", false, "verbose output, debugging from block cipher mode")
+	flag.BoolVar(&veryVerbose, "vv", false, "very verbose output, includes debugging from block cipher")
+	flag.StringVar(&mode, "mode", "ctr", "block cipher mode, `ctr` for counter mode")
 	flag.Parse()
-	log.Println("verbose : ", verbose)
-	log.Println("mode : ", mode)
-	log.Println("args : ", flag.Args())
+	if veryVerbose {
+		verbose = true
+	}
+	if verbose {
+		debugLog.Println("verbose : ", verbose)
+		debugLog.Println("very verbose : ", veryVerbose)
+		debugLog.Println("mode : ", mode)
+		debugLog.Println("args : ", flag.Args())
+	}
 	// Setup cipher
 	c := cipher.NewCipher(4, 10)
-	c.ErrorLog = log.New(os.Stderr, "error : ", 0)
-	c.InfoLog = log.New(os.Stderr, "info : ", 0)
+	c.ErrorLog = errorLog
 	if verbose {
-		c.DebugLog = log.New(os.Stdout, "debug : ", 0)
+		c.InfoLog = infoLog
+		if veryVerbose {
+			c.DebugLog = debugLog
+		}
 	}
 	// Generate random input data
 	mrand.Seed(time.Now().UnixNano())
@@ -39,16 +55,23 @@ func main() {
 	// Generate random cipher key
 	ck := getRand(16)
 	c.DebugLog.Println(state.State(ck), "cipher key")
-	// Run the appropriate block cipher mode
+	// Setup and run the appropriate block cipher mode
 	switch mode {
 	case "ctr", "cm", "icm", "sic":
-		log.Println("counter mode chosen")
+		infoLog.Println("counter mode chosen")
 		ctrMode := ctr.NewCounter(c)
+		ctrMode.ErrorLog = errorLog
+		ctrMode.InfoLog = infoLog
+		if verbose {
+			ctrMode.DebugLog = debugLog
+		}
 		nonce, _ := ctr.NewNonce()
 		ct := ctrMode.Encrypt(in, ck, nonce)
-		log.Printf("cipher text after counter mode encryption\n%s\n", hex.Dump(ct))
+		if verbose {
+			debugLog.Printf("cipher text after counter mode encryption\n%s\n", hex.Dump(ct))
+		}
 	default:
-		log.Fatalln("unknown mode chosen")
+		errorLog.Fatalln("unknown mode chosen")
 	}
 }
 

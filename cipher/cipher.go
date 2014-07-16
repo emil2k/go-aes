@@ -26,9 +26,9 @@ func NewCipher(nk int, nr int) *Cipher {
 	return &Cipher{
 		nk:       nk,
 		nr:       nr,
-		ErrorLog: log.New(ioutil.Discard, "error : ", 0),
-		InfoLog:  log.New(ioutil.Discard, "info : ", 0),
-		DebugLog: log.New(ioutil.Discard, "debug : ", 0),
+		ErrorLog: log.New(ioutil.Discard, "", 0),
+		InfoLog:  log.New(ioutil.Discard, "", 0),
+		DebugLog: log.New(ioutil.Discard, "", 0),
 	}
 }
 
