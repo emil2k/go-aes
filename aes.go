@@ -23,12 +23,14 @@ var debugLog *log.Logger = log.New(os.Stdout, "debug : ", 0)
 var verbose bool
 var veryVerbose bool
 var mode string
+var output string
 
 func main() {
 	// Parse command flags
 	flag.BoolVar(&verbose, "v", false, "verbose output, debugging from block cipher mode")
 	flag.BoolVar(&veryVerbose, "vv", false, "very verbose output, includes debugging from block cipher")
 	flag.StringVar(&mode, "mode", "ctr", "block cipher mode, `ctr` for counter mode")
+	flag.StringVar(&output, "o", "output.aes", "output file for the encrypted file")
 	flag.Parse()
 	if veryVerbose {
 		verbose = true
@@ -39,6 +41,19 @@ func main() {
 		debugLog.Println("mode : ", mode)
 		debugLog.Println("args : ", flag.Args())
 	}
+	// Open up output file
+	ofile, err := os.Create(output)
+	if err != nil {
+		errorLog.Panicln(err)
+	}
+	defer func() {
+		if verbose {
+			debugLog.Println("closing output file", ofile.Name())
+		}
+		if cerr := ofile.Close(); cerr != nil {
+			errorLog.Panicln(cerr)
+		}
+	}()
 	// Setup cipher
 	c := cipher.NewCipher(4, 10)
 	c.ErrorLog = errorLog
@@ -70,8 +85,16 @@ func main() {
 		if verbose {
 			debugLog.Printf("cipher text after counter mode encryption\n%s\n", hex.Dump(ct))
 		}
+		writeToFile(ct, ofile)
 	default:
 		errorLog.Fatalln("unknown mode chosen")
+	}
+}
+
+// writeToFile outputs the data to the passed open file
+func writeToFile(data []byte, f *os.File) {
+	if _, err := f.Write(data); err != nil {
+		errorLog.Panicln(err)
 	}
 }
 
