@@ -9,37 +9,38 @@ import "github.com/emil2k/go-aes/cipher"
 // Counter keeps track of the state of a counter cipher mode
 // used for encryption or decryption
 type Counter struct {
-	i         int    // keeps track of the counter
-	isDecrypt bool   // whether decryption, otherwise encryption
-	nonce     []byte // initialization vector
-	ck        []byte // cipher key
-	in        []byte // input plain or cipher text
-	out       []byte // output cipher or plain text
+	cipher    *cipher.Cipher // block cipher to use
+	i         int            // keeps track of the counter
+	isDecrypt bool           // whether decryption, otherwise encryption
+	nonce     []byte         // initialization vector
+	ck        []byte         // cipher key
+	in        []byte         // input plain or cipher text
+	out       []byte         // output cipher or plain text
 }
 
-// NewCounter creates a new counter, nothing interesting
-func NewCounter() *Counter {
-	return &Counter{}
+// NewCounter creates a new counter with the given Cipher instance
+func NewCounter(cipher *cipher.Cipher) *Counter {
+	return &Counter{cipher: cipher}
 }
 
 // initCounter initializes a counter either for encryption or decryption
-func (c *Counter) initCounter(in []byte, ck []byte, isDecrypt bool) {
+func (c *Counter) initCounter(in []byte, ck []byte, nonce []byte, isDecrypt bool) {
 	c.i = 0
 	c.in = in
 	c.out = make([]byte, 0)
 	c.ck = ck
+	c.nonce = nonce
 	c.isDecrypt = isDecrypt
 }
 
 // Encrypt encrypts the input using CTR mode with 128-bit AES as the block cipher
-func (c *Counter) Encrypt(in []byte, ck []byte) []byte {
-	c.initCounter(in, ck, false)
+func (c *Counter) Encrypt(in []byte, ck []byte, nonce []byte) []byte {
+	c.initCounter(in, ck, nonce, false)
 	c.addPadding()
 	blocks := len(c.in) / 16
-	aes := cipher.NewCipher(4, 10)
 	for c.i < blocks {
-		cc := aes.Encrypt(c.getCounterBlock(c.i), ck) // cipher text from encrypting cipher block
-		ib := c.getBlock(c.i)                         // input block
+		cc := c.cipher.Encrypt(c.getCounterBlock(c.i), ck) // cipher text from encrypting cipher block
+		ib := c.getBlock(c.i)                              // input block
 		for i, _ := range ib {
 			ib[i] ^= cc[i]
 		}
@@ -50,13 +51,12 @@ func (c *Counter) Encrypt(in []byte, ck []byte) []byte {
 }
 
 // Decrypt decrypts the input using CTR mode with 128-bit AES as the cipher block
-func (c *Counter) Decrypt(in []byte, ck []byte) []byte {
-	c.initCounter(in, ck, true)
+func (c *Counter) Decrypt(in []byte, ck []byte, nonce []byte) []byte {
+	c.initCounter(in, ck, nonce, true)
 	blocks := len(c.in) / 16
-	aes := cipher.NewCipher(4, 10)
 	for c.i < blocks {
-		cc := aes.Encrypt(c.getCounterBlock(c.i), ck) // cipher text from encrypting cipher block
-		ib := c.getBlock(c.i)                         // input block
+		cc := c.cipher.Encrypt(c.getCounterBlock(c.i), ck) // cipher text from encrypting cipher block
+		ib := c.getBlock(c.i)                              // input block
 		for i, _ := range ib {
 			ib[i] ^= cc[i]
 		}
@@ -105,8 +105,8 @@ func (c *Counter) getBlock(i int) []byte {
 	return t
 }
 
-// newNonce generates a new 8 byte nonce, returns nonce slice and error
-func newNonce() ([]byte, error) {
+// NewNonce generates a new 8 byte nonce, returns nonce slice and error
+func NewNonce() ([]byte, error) {
 	nonce := make([]byte, 8)
 	_, err := rand.Read(nonce)
 	return nonce, err

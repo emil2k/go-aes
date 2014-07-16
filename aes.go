@@ -22,26 +22,30 @@ func main() {
 	flag.BoolVar(&verbose, "v", false, "verbose output")
 	flag.StringVar(&mode, "mode", "ctr", "block cipher mode, `ctr` for counter mode.")
 	flag.Parse()
-	log.Println("Arguments")
 	log.Println("verbose : ", verbose)
 	log.Println("mode : ", mode)
 	log.Println("args : ", flag.Args())
+	// Setup cipher
 	c := cipher.NewCipher(4, 10)
 	c.ErrorLog = log.New(os.Stderr, "error : ", 0)
 	c.InfoLog = log.New(os.Stderr, "info : ", 0)
 	if verbose {
 		c.DebugLog = log.New(os.Stdout, "debug : ", 0)
 	}
+	// Generate random input data
 	mrand.Seed(time.Now().UnixNano())
 	in := getRand(mrand.Intn(1000)) // random length input
 	c.DebugLog.Println(len(in), "bytes in input")
+	// Generate random cipher key
 	ck := getRand(16)
 	c.DebugLog.Println(state.State(ck), "cipher key")
+	// Run the appropriate block cipher mode
 	switch mode {
 	case "ctr", "cm", "icm", "sic":
 		log.Println("counter mode chosen")
-		mode := ctr.NewCounter()
-		ct := mode.Encrypt(in, ck)
+		ctrMode := ctr.NewCounter(c)
+		nonce, _ := ctr.NewNonce()
+		ct := ctrMode.Encrypt(in, ck, nonce)
 		log.Printf("cipher text after counter mode encryption\n%s\n", hex.Dump(ct))
 	default:
 		log.Fatalln("unknown mode chosen")
