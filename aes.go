@@ -4,12 +4,20 @@ import (
 	crand "crypto/rand"
 	"encoding/hex"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/emil2k/go-aes/cipher"
 	"github.com/emil2k/go-aes/modes/ctr"
 )
+
+const help string = `
+Encrypt and decrypt files using an AES block cipher.
+
+%s [ -d | -v | -vv ]  [-mode mode] key_file input_file output_file
+
+`
 
 // Logs
 var errorLog *log.Logger = log.New(os.Stderr, "errror : ", 0)
@@ -25,6 +33,15 @@ var args []string
 var key string
 var input string
 var output string
+
+func init() {
+	flag.Usage = func() {
+		command := os.Args[0]
+		fmt.Fprintf(os.Stderr, help, command)
+		flag.PrintDefaults()
+		fmt.Fprintln(os.Stderr, "\n~~ by Emil ~~\n")
+	}
+}
 
 func main() {
 	// Parse command flags
