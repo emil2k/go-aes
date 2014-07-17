@@ -24,6 +24,7 @@ var verbose bool
 var veryVerbose bool
 var mode string
 var output string
+var keyOutput string
 
 func main() {
 	// Parse command flags
@@ -31,6 +32,7 @@ func main() {
 	flag.BoolVar(&veryVerbose, "vv", false, "very verbose output, includes debugging from block cipher")
 	flag.StringVar(&mode, "mode", "ctr", "block cipher mode, `ctr` for counter mode")
 	flag.StringVar(&output, "o", "output.aes", "output file for the encrypted file")
+	flag.StringVar(&keyOutput, "k", "output.key.aes", "output file for the encryption key")
 	flag.Parse()
 	if veryVerbose {
 		verbose = true
@@ -41,19 +43,11 @@ func main() {
 		debugLog.Println("mode : ", mode)
 		debugLog.Println("args : ", flag.Args())
 	}
-	// Open up output file
-	ofile, err := os.Create(output)
-	if err != nil {
-		errorLog.Panicln(err)
-	}
-	defer func() {
-		if verbose {
-			debugLog.Println("closing output file", ofile.Name())
-		}
-		if cerr := ofile.Close(); cerr != nil {
-			errorLog.Panicln(cerr)
-		}
-	}()
+	// Open up output files
+	ofile := createFile(output)
+	defer closeFile(ofile)
+	ofileKey := createFile(keyOutput)
+	defer closeFile(ofileKey)
 	// Setup cipher
 	c := cipher.NewCipher(4, 10)
 	c.ErrorLog = errorLog
@@ -85,16 +79,55 @@ func main() {
 		if verbose {
 			debugLog.Printf("cipher text after counter mode encryption\n%s\n", hex.Dump(ct))
 		}
-		writeToFile(ct, ofile)
+		outputToFile(ofile, nonce, ct)
+		infoLog.Println("encryption stored in", ofile.Name())
 	default:
 		errorLog.Fatalln("unknown mode chosen")
 	}
+	// Output cipher key
+	writeToFile(ofileKey, ck...)
+	infoLog.Println("cipher key stored in", ofileKey.Name())
 }
 
-// writeToFile outputs the data to the passed open file
-func writeToFile(data []byte, f *os.File) {
+// outputToFile outputs the encrypted data into a custom AES file format
+//  1 Octet - length of nonce or IV in bytes
+// nn Octet - nonce or IV
+// nn Octet - encrypted message
+func outputToFile(f *os.File, iv []byte, data []byte) {
+	writeToFile(f, byte(len(iv)))
+	writeToFile(f, iv...)
+	writeToFile(f, data...)
+}
+
+// writeToFile writes the data bytes to given file outputting any errors
+// to the error log
+func writeToFile(f *os.File, data ...byte) {
 	if _, err := f.Write(data); err != nil {
 		errorLog.Panicln(err)
+	}
+}
+
+// createFile creates a file, truncates an existing file outputs errors
+// to the error log
+func createFile(name string) *os.File {
+	if f, err := os.Create(name); err != nil {
+		errorLog.Panicln(err)
+		return nil
+	} else {
+		if verbose {
+			debugLog.Println("created file", f.Name())
+		}
+		return f
+	}
+}
+
+// closeFile closes a file outputting any errors to the error log
+func closeFile(f *os.File) {
+	if err := f.Close(); err != nil {
+		errorLog.Panicln(err)
+	}
+	if verbose {
+		debugLog.Println("closed file", f.Name())
 	}
 }
 
