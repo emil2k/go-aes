@@ -15,7 +15,7 @@ import (
 const help string = `
 Encrypt and decrypt files using an AES block cipher.
 
-%s [ -d | -v | -vv ] [-mode mode] key_file input_file output_file
+%s [ -d | -v | -vv ] [-mode mode] [-size size] key_file input_file output_file
 
 `
 
@@ -29,10 +29,11 @@ var verbose bool
 var veryVerbose bool
 var isDecrypt bool
 var mode string
-var args []string
+var keySize int
 var key string
 var input string
 var output string
+var args []string
 
 func init() {
 	flag.Usage = func() {
@@ -49,6 +50,7 @@ func main() {
 	flag.BoolVar(&veryVerbose, "vv", false, "very verbose output, includes debugging from block cipher")
 	flag.BoolVar(&isDecrypt, "d", false, "whether in encryption mode")
 	flag.StringVar(&mode, "mode", "ctr", "block cipher mode, `ctr` for counter mode")
+	flag.IntVar(&keySize, "size", 128, "cipher key size in bits, for encryption only")
 	flag.Parse()
 	if veryVerbose {
 		verbose = true
@@ -62,6 +64,7 @@ func main() {
 		debugLog.Println("verbose : ", verbose)
 		debugLog.Println("very verbose : ", veryVerbose)
 		debugLog.Println("mode : ", mode)
+		debugLog.Println("key size : ", keySize)
 		debugLog.Println("is decryption? : ", isDecrypt)
 		debugLog.Println("key : ", key)
 		debugLog.Println("output : ", output)
@@ -83,9 +86,8 @@ func main() {
 	if isDecrypt {
 		ck = readFromFile(kfile)
 		nonce, in = inputFromFile(ifile)
+		keySize = len(ck)
 	} else {
-		// Generate random cipher key
-		ck = getRand(16)
 		in = readFromFile(ifile)
 		nonce, _ = ctr.NewNonce()
 	}
@@ -93,22 +95,32 @@ func main() {
 		debugLog.Println(hex.EncodeToString(ck), "cipher key")
 		debugLog.Println(hex.EncodeToString(nonce), "nonce")
 	}
-	// Setup cipher factory
-	cf := func() *cipher.Cipher {
-		c := cipher.NewCipher(4, 10)
-		c.ErrorLog = errorLog
-		if verbose {
-			c.InfoLog = infoLog
-			if veryVerbose {
-				c.DebugLog = debugLog
-			}
-		}
-		return c
-	}
 	// Setup and run the appropriate block cipher mode
 	switch mode {
 	case "ctr", "cm", "icm", "sic":
 		infoLog.Println("counter mode chosen")
+		// Check cipher key size
+		switch cipher.CipherKeySize(keySize) {
+		case cipher.CK128, cipher.CK192, cipher.CK256:
+			if !isDecrypt {
+				ck = getRand(keySize) // generate random cipher key
+			}
+		default:
+			errorLog.Fatalln("invalid cipher key size", keySize)
+		}
+		// Setup cipher factory
+		cf := func() *cipher.Cipher {
+			c := cipher.NewCipher(cipher.CipherKeySize(keySize))
+			c.ErrorLog = errorLog
+			if verbose {
+				c.InfoLog = infoLog
+				if veryVerbose {
+					c.DebugLog = debugLog
+				}
+			}
+			return c
+		}
+		// Setup counter state
 		ctrMode := ctr.NewCounter(cf)
 		ctrMode.ErrorLog = errorLog
 		ctrMode.InfoLog = infoLog
@@ -153,24 +165,24 @@ func inputFromFile(f *os.File) ([]byte, []byte) {
 // to the error log
 func writeToFile(f *os.File, data ...byte) {
 	if _, err := f.Write(data); err != nil {
-		errorLog.Panicln(err)
+		errorLog.Fatalln(err)
 	}
 }
 
 // readFromFile reads data from given file into a byte slice
-// outputs any errors to the error log maximum size 1024 bytes
+// outputs any errors to the error log maximum size 20KB
 func readFromFile(f *os.File) []byte {
 	var fsize int64
 	if finfo, err := f.Stat(); err != nil {
-		errorLog.Panicln(err)
+		errorLog.Fatalln(err)
 		return nil
-	} else if fsize = finfo.Size(); fsize > 1024 {
-		errorLog.Panicln("file is to large to read, file size :", fsize)
+	} else if fsize = finfo.Size(); fsize > 20*1024 {
+		errorLog.Fatalln("file is to large to read, file size :", fsize)
 		return nil
 	}
 	data := make([]byte, fsize)
 	if n, err := f.Read(data); err != nil {
-		errorLog.Panicln(err)
+		errorLog.Fatalln(err)
 		return nil
 	} else if verbose {
 		debugLog.Println(n, "bytes read from", f.Name())
@@ -182,7 +194,7 @@ func readFromFile(f *os.File) []byte {
 // to the error log
 func createFile(name string) *os.File {
 	if f, err := os.Create(name); err != nil {
-		errorLog.Panicln(err)
+		errorLog.Fatalln(err)
 		return nil
 	} else {
 		if verbose {
@@ -195,7 +207,7 @@ func createFile(name string) *os.File {
 // openFile opens a file outputs errors to the the error log
 func openFile(name string) *os.File {
 	if f, err := os.Open(name); err != nil {
-		errorLog.Panicln(err)
+		errorLog.Fatalln(err)
 		return nil
 	} else {
 		if verbose {
@@ -208,7 +220,7 @@ func openFile(name string) *os.File {
 // closeFile closes a file outputting any errors to the error log
 func closeFile(f *os.File) {
 	if err := f.Close(); err != nil {
-		errorLog.Panicln(err)
+		errorLog.Fatalln(err)
 	}
 	if verbose {
 		debugLog.Println("closed file", f.Name())
@@ -220,7 +232,7 @@ func closeFile(f *os.File) {
 func getRand(n int) []byte {
 	r := make([]byte, n)
 	if _, err := crand.Read(r); err != nil {
-		log.Panicln(err)
+		log.Fatalln(err)
 		return nil
 	}
 	return r

@@ -8,6 +8,14 @@ import (
 	"github.com/emil2k/go-aes/state"
 )
 
+type CipherKeySize int
+
+const (
+	CK128 CipherKeySize = 128
+	CK192 CipherKeySize = 192
+	CK256 CipherKeySize = 256
+)
+
 // CipherFactory is a function that creates a new Cipher instance
 type CipherFactory func() *Cipher
 
@@ -25,7 +33,18 @@ type Cipher struct {
 }
 
 // NewCipher constructs a new cipher loading the initial state with the input
-func NewCipher(nk int, nr int) *Cipher {
+func NewCipher(ck CipherKeySize) *Cipher {
+	var nk, nr int
+	switch ck {
+	case CK128:
+		nk, nr = 4, 10
+	case CK192:
+		nk, nr = 6, 12
+	case CK256:
+		nk, nr = 8, 14
+	default:
+		panic("invalid cipher key size selected")
+	}
 	return &Cipher{
 		nk:       nk,
 		nr:       nr,
