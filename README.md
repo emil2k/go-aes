@@ -19,4 +19,4 @@ go-aes -d key.file input.aes output.file
 
 The `key.file` stores the cipher key.
 
-*Done mainly as a learning a exercise by Emil Davtyan.*
+*Done mainly as a learning exercise by Emil Davtyan.*
