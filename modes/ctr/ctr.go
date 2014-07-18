@@ -5,28 +5,29 @@ import (
 	"fmt"
 	"io/ioutil"
 	"log"
+	"runtime"
 )
 import "github.com/emil2k/go-aes/cipher"
 
 // Counter keeps track of the state of a counter cipher mode
 // used for encryption or decryption
 type Counter struct {
-	cipher    *cipher.Cipher // block cipher to use
-	i         int            // keeps track of the counter
-	isDecrypt bool           // whether decryption, otherwise encryption
-	nonce     []byte         // initialization vector
-	ck        []byte         // cipher key
-	in        []byte         // input plain or cipher text
-	out       []byte         // output cipher or plain text
-	ErrorLog  *log.Logger    // log for errors
-	InfoLog   *log.Logger    // log for non-verbose output
-	DebugLog  *log.Logger    // log for verbose output
+	cf        cipher.CipherFactory // block cipher factory to use
+	i         int                  // keeps track of the counter
+	isDecrypt bool                 // whether decryption, otherwise encryption
+	nonce     []byte               // initialization vector
+	ck        []byte               // cipher key
+	in        []byte               // input plain or cipher text
+	out       []byte               // output cipher or plain text
+	ErrorLog  *log.Logger          // log for errors
+	InfoLog   *log.Logger          // log for non-verbose output
+	DebugLog  *log.Logger          // log for verbose output
 }
 
 // NewCounter creates a new counter with the given Cipher instance
-func NewCounter(cipher *cipher.Cipher) *Counter {
+func NewCounter(cf cipher.CipherFactory) *Counter {
 	return &Counter{
-		cipher:   cipher,
+		cf:       cf,
 		ErrorLog: log.New(ioutil.Discard, "", 0),
 		InfoLog:  log.New(ioutil.Discard, "", 0),
 		DebugLog: log.New(ioutil.Discard, "", 0),
@@ -36,43 +37,99 @@ func NewCounter(cipher *cipher.Cipher) *Counter {
 // initCounter initializes a counter either for encryption or decryption
 func (c *Counter) initCounter(in []byte, ck []byte, nonce []byte, isDecrypt bool) {
 	c.i = 0
-	c.in = in
-	c.out = make([]byte, 0)
+	c.isDecrypt = isDecrypt
 	c.ck = ck
 	c.nonce = nonce
-	c.isDecrypt = isDecrypt
+	c.in = in
+	c.out = make([]byte, c.outputLength())
+}
+
+// outputLength determines the size of the output slice to allocate
+// depends on input length and whether decrypting or encrypting
+func (c *Counter) outputLength() (outLen int) {
+	inLen := len(c.in)
+	if c.isDecrypt {
+		outLen = inLen
+		c.DebugLog.Println("decryption output length", outLen, "based on input length", inLen)
+	} else {
+		outLen = inLen + 16 - (inLen % 16)
+		c.DebugLog.Println("encryption output length", outLen, "based on input length", inLen)
+	}
+	return
+}
+
+// processCounterCore runs the core of the counter mode each block is run
+// on separate goroutines and gathered together at the end
+func (c *Counter) processCounterCore() {
+	c.DebugLog.Println(runtime.NumCPU(), "number of CPUs")
+	blocks := len(c.in) / 16
+	sem := make(chan int, runtime.NumCPU())     // controls goroutine allocation
+	results := make(chan *blockPayload, blocks) // collects individual completed results
+	for c.i < blocks {
+		sem <- 1
+		go func(b *blockPayload) {
+			c.DebugLog.Println("running block", b.i)
+			processBlock(b)
+			results <- b
+			<-sem
+		}(c.newBlockPayload(c.i, c.ck))
+		c.i++
+	}
+	// Put results together
+	for i := 0; i < blocks; i++ {
+		b := <-results
+		min, max := b.i*16, (b.i+1)*16
+		c.DebugLog.Println("gathering result from block", b.i)
+		c.DebugLog.Printf("copying into range [%d, %d) of output length %d\n", min, max, len(c.out))
+		copy(c.out[b.i*16:(b.i+1)*16], b.out)
+	}
+}
+
+// blockPayload keeps the state of a block while it is being processed
+// in a goroutine and is then sent back as the result over a channel
+type blockPayload struct {
+	cipher *cipher.Cipher // block cipher used
+	i      int            // block count
+	in     []byte         // input block
+	out    []byte         // output of block
+	ck     []byte         // cipher key
+	cb     []byte         // counter block
+}
+
+// newBlockPayload creates a new instance of a block payload
+func (c *Counter) newBlockPayload(i int, ck []byte) *blockPayload {
+	return &blockPayload{
+		i:      i,
+		cipher: c.cf(),
+		in:     c.getBlock(i),
+		out:    make([]byte, 0),
+		ck:     ck,
+		cb:     c.getCounterBlock(i),
+	}
+}
+
+// processBlock processes an individual block payload
+func processBlock(b *blockPayload) {
+	b.cipher.DebugLog.Println("process block", b.i)
+	cc := b.cipher.Encrypt(b.cb, b.ck) // cipher text from encrypting cipher block
+	b.out = make([]byte, len(b.in))
+	for i, v := range b.in {
+		b.out[i] = v ^ cc[i]
+	}
 }
 
 // Encrypt encrypts the input using CTR mode
 func (c *Counter) Encrypt(in []byte, ck []byte, nonce []byte) []byte {
 	c.initCounter(in, ck, nonce, false)
 	c.addPadding()
-	blocks := len(c.in) / 16
-	for c.i < blocks {
-		cc := c.cipher.Encrypt(c.getCounterBlock(c.i), ck) // cipher text from encrypting cipher block
-		ib := c.getBlock(c.i)                              // input block
-		for i, _ := range ib {
-			ib[i] ^= cc[i]
-		}
-		c.out = append(c.out, ib...)
-		c.i++
-	}
+	c.processCounterCore()
 	return c.out
 }
 
 // Decrypt decrypts the input using CTR mode
 func (c *Counter) Decrypt(in []byte, ck []byte, nonce []byte) []byte {
 	c.initCounter(in, ck, nonce, true)
-	blocks := len(c.in) / 16
-	for c.i < blocks {
-		cc := c.cipher.Encrypt(c.getCounterBlock(c.i), ck) // cipher text from encrypting cipher block
-		ib := c.getBlock(c.i)                              // input block
-		for i, _ := range ib {
-			ib[i] ^= cc[i]
-		}
-		c.out = append(c.out, ib...)
-		c.i++
-	}
+	c.processCounterCore()
 	c.removePadding()
 	return c.out
 }

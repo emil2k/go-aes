@@ -3,14 +3,23 @@ package ctr
 import "bytes"
 import "encoding/hex"
 import "github.com/emil2k/go-aes/cipher"
+import "log"
+import "os"
 import "testing"
 
 func TestEncryptDecrypt(t *testing.T) {
+	log := log.New(os.Stdout, "", 0)
 	in := []byte{0x01, 0x02, 0x03}
 	ck := []byte{0x69, 0xc4, 0xe0, 0xd8, 0x6a, 0x7b, 0x04, 0x30, 0xd8, 0xcd, 0xb7, 0x80, 0x70, 0xb4, 0xc5, 0x5a}
-	c := NewCounter(cipher.NewCipher(4, 10))
+	cf := func() *cipher.Cipher {
+		c := cipher.NewCipher(4, 10)
+		c.ErrorLog, c.DebugLog, c.InfoLog = log, log, log
+		return c
+	}
 	nonce, _ := NewNonce()
-	if out := c.Decrypt(c.Encrypt(in, ck, nonce), ck, nonce); !bytes.Equal(out, in) {
+	counter := NewCounter(cf)
+	counter.ErrorLog, counter.DebugLog, counter.InfoLog = log, log, log
+	if out := counter.Decrypt(counter.Encrypt(in, ck, nonce), ck, nonce); !bytes.Equal(out, in) {
 		t.Errorf("Encryption followed by decryption failed with %s", hex.EncodeToString(out))
 	}
 }

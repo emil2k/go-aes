@@ -8,6 +8,9 @@ import (
 	"github.com/emil2k/go-aes/state"
 )
 
+// CipherFactory is a function that creates a new Cipher instance
+type CipherFactory func() *Cipher
+
 // Cipher keeps the state of encyption or decryption
 type Cipher struct {
 	key       key.Key     // keeps the state of the key as it is expanded

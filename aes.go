@@ -15,7 +15,7 @@ import (
 const help string = `
 Encrypt and decrypt files using an AES block cipher.
 
-%s [ -d | -v | -vv ]  [-mode mode] key_file input_file output_file
+%s [ -d | -v | -vv ] [-mode mode] key_file input_file output_file
 
 `
 
@@ -68,15 +68,6 @@ func main() {
 		debugLog.Println("input : ", input)
 		debugLog.Println("args : ", args)
 	}
-	// Setup cipher
-	c := cipher.NewCipher(4, 10)
-	c.ErrorLog = errorLog
-	if verbose {
-		c.InfoLog = infoLog
-		if veryVerbose {
-			c.DebugLog = debugLog
-		}
-	}
 	// Setup file handlers
 	var kfile, ifile, ofile *os.File
 	if isDecrypt {
@@ -99,14 +90,26 @@ func main() {
 		nonce, _ = ctr.NewNonce()
 	}
 	if verbose {
-		c.DebugLog.Println(hex.EncodeToString(ck), "cipher key")
-		c.DebugLog.Println(hex.EncodeToString(nonce), "nonce")
+		debugLog.Println(hex.EncodeToString(ck), "cipher key")
+		debugLog.Println(hex.EncodeToString(nonce), "nonce")
+	}
+	// Setup cipher factory
+	cf := func() *cipher.Cipher {
+		c := cipher.NewCipher(4, 10)
+		c.ErrorLog = errorLog
+		if verbose {
+			c.InfoLog = infoLog
+			if veryVerbose {
+				c.DebugLog = debugLog
+			}
+		}
+		return c
 	}
 	// Setup and run the appropriate block cipher mode
 	switch mode {
 	case "ctr", "cm", "icm", "sic":
 		infoLog.Println("counter mode chosen")
-		ctrMode := ctr.NewCounter(c)
+		ctrMode := ctr.NewCounter(cf)
 		ctrMode.ErrorLog = errorLog
 		ctrMode.InfoLog = infoLog
 		if verbose {
@@ -115,6 +118,7 @@ func main() {
 		if isDecrypt {
 			out := ctrMode.Decrypt(in, ck, nonce)
 			writeToFile(ofile, out...)
+			infoLog.Println("decryption stored in", ofile.Name())
 		} else {
 			outputToFile(ofile, nonce, ctrMode.Encrypt(in, ck, nonce))
 			infoLog.Println("encryption stored in", ofile.Name())
