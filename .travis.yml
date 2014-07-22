@@ -7,6 +7,7 @@ before_install:
         - go get github.com/mattn/goveralls
         - go get code.google.com/p/go.tools/cmd/cover
 script:
+        - go test -covermode=count -coverprofile=main.coverprofile github.com/emil2k/go-aes
         - go test -covermode=count -coverprofile=cipher.coverprofile github.com/emil2k/go-aes/cipher
         - go test -covermode=count -coverprofile=key.coverprofile github.com/emil2k/go-aes/key
         - go test -covermode=count -coverprofile=rijndael.coverprofile github.com/emil2k/go-aes/rijndael
