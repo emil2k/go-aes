@@ -14,7 +14,9 @@ func mockExecute(args ...string) {
 	main()
 }
 
-func TestEncryptDecrypt(t *testing.T) {
+// testModeEncryptDecrypt setups and runs a encrypt/decrypt cycle using the given mode
+// checking that the decryption is the inverse of encryption
+func testModeEncryptDecrypt(t *testing.T, mode string) {
 	// Prepare file to encrypt
 	data := []byte{0x01, 0x02, 0x03}
 	f := createFile(tf)
@@ -26,11 +28,11 @@ func TestEncryptDecrypt(t *testing.T) {
 	encrypted := tf + ".aes"
 	defer removeTestFile(t, key)
 	defer removeTestFile(t, encrypted)
-	mockExecute("-vv", key, tf, encrypted)
+	mockExecute("-vv", "-mode", mode, key, tf, encrypted)
 	// Decrypt file
 	out := tf + ".out"
 	defer removeTestFile(t, out)
-	mockExecute("-v", "-d", key, encrypted, out)
+	mockExecute("-vv", "-d", "-mode", mode, key, encrypted, out)
 	// Inspect output
 	of := openFile(out)
 	defer closeFile(of)
@@ -38,4 +40,8 @@ func TestEncryptDecrypt(t *testing.T) {
 	if !bytes.Equal(outData, data) {
 		t.Errorf("Encrypt the decrypt failed with %s", hex.EncodeToString(outData))
 	}
+}
+
+func TestCTRMode(t *testing.T) {
+	testModeEncryptDecrypt(t, "ctr")
 }

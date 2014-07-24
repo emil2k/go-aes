@@ -2,7 +2,7 @@
 [![Build Status](https://travis-ci.org/emil2k/go-aes.svg)](https://travis-ci.org/emil2k/go-aes)
 [![Coverage Status](https://img.shields.io/coveralls/emil2k/go-aes.svg)](https://coveralls.io/r/emil2k/go-aes)
 
-A Go implementation of the AES encryption standard. It can process 128 bit blocks with 128, 192, 256 bit cipher keys.
+A Go implementation of the AES encryption standard. It can process 128 bit blocks with 128, 192, 256 bit cipher keys and operate with either counter mode (CTR) or chain-block chaining mode (CBC) mode.
 
 ---
 
@@ -25,7 +25,7 @@ Encrypt and decrypt files using an AES block cipher.
 go-aes [ -d | -v | -vv ] [-mode mode] [-size size] key_file input_file output_file
 
   -d=false: whether in encryption mode
-  -mode="ctr": block cipher mode, `ctr` for counter mode
+  -mode="ctr": block cipher mode, `ctr` for counter or `cbc` for chain-block chaining
   -size=128: cipher key size in bits, for encryption only
   -v=false: verbose output, debugging from block cipher mode
   -vv=false: very verbose output, includes debugging from block cipher

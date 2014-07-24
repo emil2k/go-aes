@@ -8,6 +8,8 @@ import (
 	"os"
 
 	"github.com/emil2k/go-aes/cipher"
+	"github.com/emil2k/go-aes/modes"
+	"github.com/emil2k/go-aes/modes/cbc"
 	"github.com/emil2k/go-aes/modes/ctr"
 )
 
@@ -48,7 +50,7 @@ func main() {
 	flag.BoolVar(&verbose, "v", false, "verbose output, debugging from block cipher mode")
 	flag.BoolVar(&veryVerbose, "vv", false, "very verbose output, includes debugging from block cipher")
 	flag.BoolVar(&isDecrypt, "d", false, "whether in encryption mode")
-	flag.StringVar(&mode, "mode", "ctr", "block cipher mode, `ctr` for counter mode")
+	flag.StringVar(&mode, "mode", "ctr", "block cipher mode, `ctr` for counter or `cbc` for chain-block chaining")
 	flag.IntVar(&keySize, "size", 128, "cipher key size in bits, for encryption only")
 	flag.Parse()
 	if veryVerbose {
@@ -85,60 +87,81 @@ func main() {
 	if isDecrypt {
 		ck = readFromFile(kfile)
 		nonce, in = inputFromFile(ifile)
-		keySize = len(ck)
+		keySize = len(ck) * 8
 	} else {
+		ck = getRand(keySize / 8) // generate random cipher key
 		in = readFromFile(ifile)
-		nonce, _ = ctr.NewNonce()
+	}
+	// Check cipher key size
+	checkKeySize(keySize)
+	// Setup cipher factory
+	cf := func() *cipher.Cipher {
+		c := cipher.NewCipher(cipher.CipherKeySize(keySize))
+		c.ErrorLog = errorLog
+		if verbose {
+			c.InfoLog = infoLog
+			if veryVerbose {
+				c.DebugLog = debugLog
+			}
+		}
+		return c
 	}
 	if verbose {
 		debugLog.Println(hex.EncodeToString(ck), "cipher key")
 		debugLog.Println(hex.EncodeToString(nonce), "nonce")
 	}
+	// Setup base mode
+	baseMode := modes.NewMode(cf)
+	baseMode.ErrorLog = errorLog
+	baseMode.InfoLog = infoLog
+	if verbose {
+		baseMode.DebugLog = debugLog
+	}
 	// Setup and run the appropriate block cipher mode
+	var out []byte
 	switch mode {
 	case "ctr", "cm", "icm", "sic":
 		infoLog.Println("counter mode chosen")
-		// Check cipher key size
-		switch cipher.CipherKeySize(keySize) {
-		case cipher.CK128, cipher.CK192, cipher.CK256:
-			if !isDecrypt {
-				ck = getRand(keySize) // generate random cipher key
-			}
-		default:
-			errorLog.Fatalln("invalid cipher key size", keySize)
-		}
-		// Setup cipher factory
-		cf := func() *cipher.Cipher {
-			c := cipher.NewCipher(cipher.CipherKeySize(keySize))
-			c.ErrorLog = errorLog
-			if verbose {
-				c.InfoLog = infoLog
-				if veryVerbose {
-					c.DebugLog = debugLog
-				}
-			}
-			return c
-		}
-		// Setup counter state
-		ctrMode := ctr.NewCounter(cf)
-		ctrMode.ErrorLog = errorLog
-		ctrMode.InfoLog = infoLog
-		if verbose {
-			ctrMode.DebugLog = debugLog
-		}
+		// Setup counter mode
+		ctrMode := &ctr.Counter{Mode: *baseMode}
 		if isDecrypt {
-			out := ctrMode.Decrypt(in, ck, nonce)
-			writeToFile(ofile, out...)
-			infoLog.Println("decryption stored in", ofile.Name())
+			out = ctrMode.Decrypt(in, ck, nonce)
 		} else {
-			outputToFile(ofile, nonce, ctrMode.Encrypt(in, ck, nonce))
-			infoLog.Println("encryption stored in", ofile.Name())
-			// Output cipher key
-			writeToFile(kfile, ck...)
-			infoLog.Println("cipher key stored in", kfile.Name())
+			nonce, _ = modes.NewNonce(8)
+			out = ctrMode.Encrypt(in, ck, nonce)
+		}
+	case "cbc":
+		infoLog.Println("chain-block chaining mode chosen")
+		// Setup chain-block chaining mode
+		cbcMode := &cbc.Chain{Mode: *baseMode}
+		if isDecrypt {
+			out = cbcMode.Decrypt(in, ck, nonce)
+		} else {
+			nonce, _ = modes.NewNonce(16)
+			out = cbcMode.Encrypt(in, ck, nonce)
 		}
 	default:
 		errorLog.Fatalln("unknown mode chosen")
+	}
+	// Output to files
+	if isDecrypt {
+		writeToFile(ofile, out...)
+		infoLog.Println("decryption stored in", ofile.Name())
+	} else {
+		outputToFile(ofile, nonce, out)
+		infoLog.Println("encryption stored in", ofile.Name())
+		// Output cipher key
+		writeToFile(kfile, ck...)
+		infoLog.Println("cipher key stored in", kfile.Name())
+	}
+}
+
+// checkKeySize checks the key size, ends program if incorrect
+func checkKeySize(k int) {
+	switch cipher.CipherKeySize(k) {
+	case cipher.CK128, cipher.CK192, cipher.CK256:
+	default:
+		errorLog.Fatalln("invalid cipher key size", keySize)
 	}
 }
 
