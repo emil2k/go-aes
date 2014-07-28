@@ -1,27 +1,27 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"os"
 )
 
-// writeToFile writes the data bytes to given file outputting any errors
-// to the error log
+// writeToFile writes the data bytes to given file, panics if error.
 func writeToFile(f *os.File, data ...byte) {
 	if _, err := f.Write(data); err != nil {
-		errorLog.Fatalln(err)
+		panic(err)
 	}
 }
 
-// readFromFile reads data from given file into a byte slice
-// outputs any errors to the error log maximum size 20KB
+// readFromFile reads data from given file into a byte slice, panics if error.
+// Maximum size 20KB
 func readFromFile(f *os.File) []byte {
 	var fsize int64
 	if finfo, err := f.Stat(); err != nil {
-		errorLog.Fatalln(err)
+		panic(err)
 		return nil
 	} else if fsize = finfo.Size(); fsize > 20*1024 {
-		errorLog.Fatalln("file is to large to read, file size :", fsize)
+		panic(fmt.Sprintf("file is to large to read, file size : %d bytes", fsize))
 		return nil
 	}
 	data := make([]byte, fsize)
@@ -30,47 +30,55 @@ func readFromFile(f *os.File) []byte {
 			debugLog.Println("read to eof", f.Name())
 			return data
 		}
-		errorLog.Fatalln("Error reading from file :", err)
+		panic(fmt.Sprintf("Error reading from file : %s", err))
 		return nil
-	} else if verbose {
+	} else if args.verbose {
 		debugLog.Println(n, "bytes read from", f.Name())
 	}
 	return data
 }
 
-// createFile creates a file, truncates an existing file outputs errors
-// to the error log
+// getFileSize returns the files size, panics if error.
+func getFileSize(name string) int64 {
+	if finfo, err := os.Stat(name); err != nil {
+		panic(err)
+	} else {
+		return finfo.Size()
+	}
+}
+
+// createFile creates a file, truncates an existing file, panics if error.
 func createFile(name string) *os.File {
 	if f, err := os.Create(name); err != nil {
-		errorLog.Fatalln(err)
+		panic(err)
 		return nil
 	} else {
-		if verbose {
+		if args.verbose {
 			debugLog.Println("created file", f.Name())
 		}
 		return f
 	}
 }
 
-// openFile opens a file outputs errors to the the error log
+// openFile opens a file, panics if error.
 func openFile(name string) *os.File {
 	if f, err := os.Open(name); err != nil {
-		errorLog.Fatalln(err)
+		panic(err)
 		return nil
 	} else {
-		if verbose {
+		if args.verbose {
 			debugLog.Println("opened file", f.Name())
 		}
 		return f
 	}
 }
 
-// closeFile closes a file outputting any errors to the error log
+// closeFile closes a file, panics if error.
 func closeFile(f *os.File) {
 	if err := f.Close(); err != nil {
-		errorLog.Fatalln(err)
+		panic(err)
 	}
-	if verbose {
+	if args.verbose {
 		debugLog.Println("closed file", f.Name())
 	}
 }

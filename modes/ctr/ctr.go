@@ -1,9 +1,11 @@
 package ctr
 
 import (
+	"encoding/hex"
 	"fmt"
 	"github.com/emil2k/go-aes/cipher"
 	"github.com/emil2k/go-aes/modes"
+	"io"
 	"runtime"
 )
 
@@ -23,8 +25,8 @@ func NewCounter(cf cipher.CipherFactory) *Counter {
 }
 
 // initCounter initializes a counter either for encryption or decryption
-func (c *Counter) initCounter(in []byte, ck []byte, nonce []byte, isDecrypt bool) {
-	c.InitMode(in, ck, isDecrypt)
+func (c *Counter) initCounter(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte, isDecrypt bool) {
+	c.InitMode(offset, size, in, out, ck, isDecrypt)
 	c.i = 0
 	c.nonce = nonce
 }
@@ -33,10 +35,9 @@ func (c *Counter) initCounter(in []byte, ck []byte, nonce []byte, isDecrypt bool
 // on separate goroutines and gathered together at the end
 func (c *Counter) processCounterCore() {
 	c.DebugLog.Println(runtime.NumCPU(), "number of CPUs")
-	blocks := c.NBlocks()
-	sem := make(chan int, runtime.NumCPU())     // controls goroutine allocation
-	results := make(chan *blockPayload, blocks) // collects individual completed results
-	for c.i < blocks {
+	sem := make(chan int, runtime.NumCPU())          // controls goroutine allocation
+	results := make(chan *blockPayload, c.NBlocks()) // collects individual completed results
+	for int64(c.i) < c.NBlocks() {
 		sem <- 1
 		go func(b *blockPayload) {
 			c.DebugLog.Println("running block", b.i)
@@ -47,7 +48,7 @@ func (c *Counter) processCounterCore() {
 		c.i++
 	}
 	// Put results together
-	for i := 0; i < blocks; i++ {
+	for i := 0; int64(i) < c.NBlocks(); i++ {
 		b := <-results
 		c.PutBlock(b.i, b.out)
 	}
@@ -78,7 +79,7 @@ func (c *Counter) newBlockPayload(i int, ck []byte) *blockPayload {
 
 // processBlock processes an individual block payload
 func processBlock(b *blockPayload) {
-	b.cipher.DebugLog.Println("process block", b.i)
+	b.cipher.DebugLog.Println("process block", b.i, hex.EncodeToString(b.in))
 	cc := b.cipher.Encrypt(b.cb, b.ck) // cipher text from encrypting cipher block
 	b.out = make([]byte, len(b.in))
 	for i, v := range b.in {
@@ -87,19 +88,15 @@ func processBlock(b *blockPayload) {
 }
 
 // Encrypt encrypts the input using CTR mode
-func (c *Counter) Encrypt(in []byte, ck []byte, nonce []byte) []byte {
-	c.initCounter(in, ck, nonce, false)
-	c.AddPadding()
+func (c *Counter) Encrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
+	c.initCounter(offset, size, in, out, ck, nonce, false)
 	c.processCounterCore()
-	return c.Out
 }
 
 // Decrypt decrypts the input using CTR mode
-func (c *Counter) Decrypt(in []byte, ck []byte, nonce []byte) []byte {
-	c.initCounter(in, ck, nonce, true)
+func (c *Counter) Decrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
+	c.initCounter(offset, size, in, out, ck, nonce, true)
 	c.processCounterCore()
-	c.RemovePadding()
-	return c.Out
 }
 
 // getCounterBlock gets the ith counter 16 byte block copies the data into a

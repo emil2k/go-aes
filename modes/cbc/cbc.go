@@ -3,35 +3,33 @@ package cbc
 import (
 	"github.com/emil2k/go-aes/cipher"
 	"github.com/emil2k/go-aes/modes"
+	"io"
 )
 
-// Chain represents the state of a cipher-block chaining process
+// Chain represents the state of a cipher-block chaining process.
 type Chain struct {
 	modes.Mode
 	last []byte // last cipher text or initilization vector
 }
 
-// NewChain creates a new chain instance with the given CipherFactory instance
+// NewChain creates a new chain instance with the given CipherFactory instance.
 func NewChain(cf cipher.CipherFactory) *Chain {
 	return &Chain{
 		Mode: *modes.NewMode(cf),
 	}
 }
 
-// initChain initializes chain istance to run an encryption or decryption
-// `in` represents the input into the function can either the plaintext or
-// ciphertext depending on whether encrypting or decrypting
-func (c *Chain) initChain(in []byte, ck []byte, nonce []byte, isDecrypt bool) {
-	c.InitMode(in, ck, isDecrypt)
+// initChain initializes chain instance to run an encryption or decryption.
+func (c *Chain) initChain(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte, isDecrypt bool) {
+	c.InitMode(offset, size, in, out, ck, isDecrypt)
 	c.last = nonce
 }
 
-// Encrypt runs the encryption process
-func (c *Chain) Encrypt(in, ck, nonce []byte) []byte {
-	c.initChain(in, ck, nonce, false)
-	c.AddPadding()
+// Encrypt runs the encryption process.
+func (c *Chain) Encrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
+	c.initChain(offset, size, in, out, ck, nonce, false)
 	bc := c.Cf()
-	for i := 0; i < c.NBlocks(); i++ {
+	for i := 0; int64(i) < c.NBlocks(); i++ {
 		state := c.GetBlock(i)
 		for i, _ := range state {
 			state[i] ^= c.last[i]
@@ -40,14 +38,13 @@ func (c *Chain) Encrypt(in, ck, nonce []byte) []byte {
 		c.PutBlock(i, state)
 		c.last = state
 	}
-	return c.Out
 }
 
 // Decrypt runs the decryption process
-func (c *Chain) Decrypt(in, ck, nonce []byte) []byte {
-	c.initChain(in, ck, nonce, true)
+func (c *Chain) Decrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
+	c.initChain(offset, size, in, out, ck, nonce, true)
 	bc := c.Cf()
-	for i := 0; i < c.NBlocks(); i++ {
+	for i := 0; int64(i) < c.NBlocks(); i++ {
 		ct := c.GetBlock(i) // block of cipher text
 		state := bc.Decrypt(ct, c.Ck)
 		for i, _ := range state {
@@ -56,6 +53,4 @@ func (c *Chain) Decrypt(in, ck, nonce []byte) []byte {
 		c.PutBlock(i, state)
 		c.last = ct
 	}
-	c.RemovePadding()
-	return c.Out
 }

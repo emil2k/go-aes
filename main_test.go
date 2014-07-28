@@ -11,6 +11,7 @@ func mockExecute(args ...string) {
 	flag.CommandLine = flag.NewFlagSet("go-aes", flag.ExitOnError) // reset the flag set
 	os.Args = []string{"go-aes"}
 	os.Args = append(os.Args, args...)
+	prepareFlags()
 	main()
 }
 

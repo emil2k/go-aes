@@ -16,5 +16,7 @@ script:
         - go test -covermode=count -coverprofile=modes.coverprofile github.com/emil2k/go-aes/modes
         - go test -covermode=count -coverprofile=modes-ctr.coverprofile github.com/emil2k/go-aes/modes/ctr
         - go test -covermode=count -coverprofile=modes-cbc.coverprofile github.com/emil2k/go-aes/modes/cbc
+        - go test -covermode=count -coverprofile=util-bytes.coverprofile github.com/emil2k/go-aes/util/cbc
+        - go test -covermode=count -coverprofile=util-rand.coverprofile github.com/emil2k/go-aes/util/rand
         - $HOME/gopath/bin/gover
         - $HOME/gopath/bin/goveralls -coverprofile=gover.coverprofile -service travis-ci -repotoken Q7QzTw90aKE1t0u0tiG9QPtZG2sdSAngY

@@ -1,18 +1,35 @@
 package modes
 
 import (
-	"crypto/rand"
+	"encoding/hex"
 	"github.com/emil2k/go-aes/cipher"
+	mlog "github.com/emil2k/go-aes/util/log"
+	"io"
 	"io/ioutil"
 	"log"
 )
+
+const BlockSize int = 16 // size of processing blocks in bytes
+
+// ModeInterface defines the common methods that need to be implemented to operate
+// as a block cipher mode.
+type ModeInterface interface {
+	Encrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte)
+	Decrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte)
+	mlog.LeveledLogger
+}
 
 // Mode contains common components for representing the state of block cipher modes
 type Mode struct {
 	Cf        cipher.CipherFactory // creates an instance of the block cipher
 	Ck        []byte               // cipher key
-	In        []byte               // input data
-	Out       []byte               // ouput data
+	In        io.ReadSeeker        // input data stream
+	offset    int64                // offset in bytes in the original input
+	size      int64                // size of original input in bytes
+	blocks    int64                // number of blocks to process
+	flushed   bool                 // whether end of file was reached on input data stream
+	padded    bool                 // whether input stream has already been padded, only for encryption
+	Out       io.WriteSeeker       // ouput data stream
 	IsDecrypt bool                 // whether running decryption
 	ErrorLog  *log.Logger          // log for errors
 	InfoLog   *log.Logger          // log for non-verbose output
@@ -29,72 +46,106 @@ func NewMode(cf cipher.CipherFactory) *Mode {
 	}
 }
 
-// initMode initiates the mode for an encryption or decryption process
-func (m *Mode) InitMode(in []byte, ck []byte, isDecrypt bool) {
+// InitMode initiates the mode for an encryption or decryption process.
+// Requires size and offset of input in bytes as int64.
+func (m *Mode) InitMode(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, isDecrypt bool) {
 	m.IsDecrypt = isDecrypt
 	m.In = in
+	m.Out = out
 	m.Ck = ck
-	m.Out = make([]byte, m.outputLength())
-}
-
-// outputLength determines the size of the output slice to allocate
-// depends on input length and whether decrypting or encrypting
-func (m *Mode) outputLength() (outLen int) {
-	inLen := len(m.In)
-	if inLen == 0 {
-		m.DebugLog.Panicln("input not initiated")
+	m.offset = offset
+	m.size = size
+	m.blocks = size / int64(BlockSize)
+	if !isDecrypt {
+		m.blocks++
 	}
-	if m.IsDecrypt {
-		outLen = inLen
-		m.DebugLog.Println("decryption output length", outLen, "based on input length", inLen)
-	} else {
-		outLen = inLen + 16 - (inLen % 16)
-		m.DebugLog.Println("encryption output length", outLen, "based on input length", inLen)
-	}
-	return
-}
-
-// AddPadding pads the input to get a positive number of 16 byte blocks
-// padded with n bytes of n value bytes, if already divides into 16 byte block
-// attach a full 16 byte block with 16 stored in each byte
-func (m *Mode) AddPadding() {
-	pad := 16 - (len(m.In) % 16)
-	for i := 0; i < pad; i++ {
-		m.In = append(m.In, byte(pad))
-	}
-	m.DebugLog.Printf("added %d bytes of padding %d bytes of data", pad, len(m.In))
-}
-
-// RemovePadding removes the padding of a decrypted plaintext output
-func (m *Mode) RemovePadding() {
-	pad := int(m.Out[len(m.Out)-1])
-	m.Out = m.Out[:len(m.Out)-pad]
-	m.DebugLog.Printf("removed %d bytes of padding for %d bytes of ouput", pad, len(m.Out))
 }
 
 // GetBlock gets the ith input block copies data into a slice
-// with a new underlying array
+// with a new underlying array. Keeps track of input size.
 func (m *Mode) GetBlock(i int) []byte {
-	t := make([]byte, 16)
-	copy(t, m.In[i*16:(i+1)*16])
+	if int64(i+1) > m.blocks {
+		m.ErrorLog.Panicf("Getting block that is out of range")
+	}
+	seek := int64(i * BlockSize)
+	if m.IsDecrypt {
+		seek += m.offset // offset for metadata during decryption
+	}
+	m.DebugLog.Println("get block seek", seek)
+	if _, seekErr := m.In.Seek(seek, 0); seekErr != nil {
+		m.ErrorLog.Panicln("Get block seek error :", seekErr.Error())
+	}
+	t := make([]byte, BlockSize)
+	if n, err := m.In.Read(t); err != nil && err != io.EOF {
+		m.ErrorLog.Panicln("Get block read error :", err.Error())
+	} else if n < BlockSize {
+		m.flushed = true
+		if !m.padded {
+			t = padBlock(t[:n]) // trim to only read bytes
+			m.padded = true
+		}
+	}
+	m.DebugLog.Printf("get block %d", i)
 	return t
 }
 
-// PutBlock sets the ith output block
-func (m *Mode) PutBlock(i int, value []byte) {
-	min, max := i*16, (i+1)*16
-	m.DebugLog.Printf("puting block %d, into range [%d, %d) of output length %d\n", i, min, max, len(m.Out))
-	copy(m.Out[i*16:(i+1)*16], value)
+// padBlock pads an incomplete block with bytes to reach the block size.
+// The padding bytes hold the number of padded bytes.
+func padBlock(b []byte) []byte {
+	pad := BlockSize - len(b)
+	for i := 0; i < pad; i++ {
+		b = append(b, byte(pad))
+	}
+	return b
+}
+
+// PutBlock sets the ith output block, removing padding of the last block.
+// If the last block is all padding won't write anything.
+func (m *Mode) PutBlock(i int, b []byte) {
+	if int64(i+1) > m.blocks {
+		m.ErrorLog.Panicf("Putting block that is out of range")
+	}
+	seek := int64(i * BlockSize)
+	if !m.IsDecrypt {
+		seek += m.offset // offset for metadata during encryption
+	}
+	m.DebugLog.Println("putting block seek", seek)
+	if _, seekErr := m.Out.Seek(seek, 0); seekErr != nil {
+		m.ErrorLog.Panicln("Put block seek error :", seekErr.Error())
+	}
+	if m.IsDecrypt && int64(i+1) == m.blocks { // during decryption remove padding from last block
+		b = unpadBlock(b)
+	}
+	if len(b) > 0 {
+		if _, err := m.Out.Write(b); err != nil {
+			m.ErrorLog.Panicln("Put block write error :", err.Error())
+		}
+		m.DebugLog.Printf("puting block %d %s", i, hex.EncodeToString(b))
+	}
+}
+
+// unpadBlock removes the padding of the last block
+func unpadBlock(b []byte) []byte {
+	pad := int(b[len(b)-1])
+	return b[:len(b)-pad]
 }
 
 // NBlocks returns the number of blocks that need to be processed
-func (m *Mode) NBlocks() int {
-	return len(m.Out) / 16
+func (m *Mode) NBlocks() int64 {
+	return m.blocks
 }
 
-// NewNonce generates a new `n` byte nonce, returns nonce slice and error
-func NewNonce(n int) ([]byte, error) {
-	nonce := make([]byte, n)
-	_, err := rand.Read(nonce)
-	return nonce, err
+// SetErrorLog sets the error log.
+func (m *Mode) SetErrorLog(errorLog *log.Logger) {
+	m.ErrorLog = errorLog
+}
+
+// SetInfoLog sets the error log.
+func (m *Mode) SetInfoLog(infoLog *log.Logger) {
+	m.InfoLog = infoLog
+}
+
+// SetDebugLog sets the error log.
+func (m *Mode) SetDebugLog(debugLog *log.Logger) {
+	m.DebugLog = debugLog
 }
