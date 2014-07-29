@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 
@@ -22,13 +23,12 @@ Encrypt and decrypt files using an AES block cipher.
 
 `
 
-// Logs
-var errorLog *log.Logger = log.New(os.Stderr, "error : ", 0)
-var infoLog *log.Logger = log.New(os.Stdout, "info : ", 0)
-var debugLog *log.Logger = log.New(os.Stdout, "debug : ", 0)
+var errorLog *log.Logger = log.New(os.Stderr, "error : ", 0) // log for errors
+var standardLog *log.Logger = log.New(os.Stdout, "", 0)      // log for regular output, non-verbose
+var verboseLog *log.Logger                                   // log for verbose output
+var veryVerboseLog *log.Logger                               // log for very verbose output
 
-// args hold the command parameters for the current execution.
-var args CommandArguments
+var args CommandArguments // holds the command parameters for the current execution
 
 // CommandArguments holds the parameters to run the command.
 type CommandArguments struct {
@@ -48,6 +48,35 @@ func init() {
 	prepareFlags()
 }
 
+// main executes the main branch of the command.
+func main() {
+	defer fatalPanic()
+	// Parse and validate the command flags
+	flag.Parse()
+	if args.veryVerbose {
+		args.verbose = true
+	}
+	prepareLogs() // instantiates any verbose logs
+	if len(flag.Args()) < 3 {
+		panic("must specify the key, input, output paths for both encryption and decrytption")
+	}
+	args.key, args.input, args.output = flag.Args()[0], flag.Args()[1], flag.Args()[2]
+	verboseLog.Println("verbose : ", args.verbose)
+	verboseLog.Println("very verbose : ", args.veryVerbose)
+	verboseLog.Println("mode : ", args.mode)
+	verboseLog.Println("key size : ", args.keySize)
+	verboseLog.Println("is decryption? : ", args.isDecrypt)
+	verboseLog.Println("key : ", args.key)
+	verboseLog.Println("output : ", args.output)
+	verboseLog.Println("input : ", args.input)
+	// Execute encryption or decryption
+	if args.isDecrypt {
+		decrypt()
+	} else {
+		encrypt()
+	}
+}
+
 // prepareFlags prepares the command flags.
 func prepareFlags() {
 	// Set the usage string, displayed when help is run
@@ -65,6 +94,20 @@ func prepareFlags() {
 	flag.Int64Var(&args.keySize, "size", 128, "cipher key size in bits, for encryption only")
 }
 
+// prepareLogs initiates the different logs based on the verbose parameters.
+func prepareLogs() {
+	if args.verbose {
+		verboseLog = log.New(os.Stdout, "debug : ", 0)
+	} else {
+		verboseLog = log.New(ioutil.Discard, "", 0)
+	}
+	if args.veryVerbose {
+		veryVerboseLog = log.New(os.Stdout, "debug : ", 0)
+	} else {
+		veryVerboseLog = log.New(ioutil.Discard, "", 0)
+	}
+}
+
 // encrypt executes the encrypting branch of the command.
 func encrypt() {
 	checkKeySize(args.keySize)
@@ -79,11 +122,11 @@ func encrypt() {
 	var mode modes.ModeInterface
 	switch args.mode {
 	case "ctr", "cm", "icm", "sic":
-		infoLog.Println("counter mode chosen")
+		verboseLog.Println("counter mode chosen")
 		nonce = rand.GetRand(8)
 		mode = ctr.NewCounter(getCipherFactory())
 	case "cbc":
-		infoLog.Println("chain-block chaining mode chosen")
+		verboseLog.Println("chain-block chaining mode chosen")
 		nonce = rand.GetRand(16)
 		mode = cbc.NewChain(getCipherFactory())
 	default:
@@ -93,9 +136,9 @@ func encrypt() {
 	prepareOutput(ofile, nonce)
 	// Run the encryption
 	mode.Encrypt(int64(len(nonce)+1), getFileSize(args.input), ifile, ofile, ck, nonce)
-	infoLog.Println("encryption stored in", ofile.Name())
+	standardLog.Println("encryption stored in", ofile.Name())
 	writeToFile(kfile, ck...)
-	infoLog.Println("cipher key stored in", kfile.Name())
+	standardLog.Println("cipher key stored in", kfile.Name())
 }
 
 // decrypt executes the decrypting branch of the command.
@@ -121,10 +164,10 @@ func decrypt() {
 	var mode modes.ModeInterface
 	switch args.mode {
 	case "ctr", "cm", "icm", "sic":
-		infoLog.Println("counter mode chosen")
+		verboseLog.Println("counter mode chosen")
 		mode = ctr.NewCounter(getCipherFactory())
 	case "cbc":
-		infoLog.Println("chain-block chaining mode chosen")
+		verboseLog.Println("chain-block chaining mode chosen")
 		mode = cbc.NewChain(getCipherFactory())
 	default:
 		panic("unknown mode chosen")
@@ -132,37 +175,7 @@ func decrypt() {
 	prepareMode(mode)
 	// Run the decryption
 	mode.Decrypt(int64(len(nonce)+1), getFileSize(args.input)-int64(len(nonce)+1), ifile, ofile, ck, nonce)
-	infoLog.Println("decryption stored in", ofile.Name())
-}
-
-// main executes the main branch of the command.
-func main() {
-	defer fatalPanic()
-	// Parse and validate the command flags
-	flag.Parse()
-	if args.veryVerbose {
-		args.verbose = true
-	}
-	if len(flag.Args()) < 3 {
-		panic("must specify the key, input, output paths for both encryption and decrytption")
-	}
-	args.key, args.input, args.output = flag.Args()[0], flag.Args()[1], flag.Args()[2]
-	if args.verbose {
-		debugLog.Println("verbose : ", args.verbose)
-		debugLog.Println("very verbose : ", args.veryVerbose)
-		debugLog.Println("mode : ", args.mode)
-		debugLog.Println("key size : ", args.keySize)
-		debugLog.Println("is decryption? : ", args.isDecrypt)
-		debugLog.Println("key : ", args.key)
-		debugLog.Println("output : ", args.output)
-		debugLog.Println("input : ", args.input)
-	}
-	// Execute encryption or decryption
-	if args.isDecrypt {
-		decrypt()
-	} else {
-		encrypt()
-	}
+	standardLog.Println("decryption stored in", ofile.Name())
 }
 
 // fatalPanic in case of a recovered panic logs and exits execution with code 1.
@@ -186,12 +199,8 @@ func getCipherFactory() cipher.CipherFactory {
 	return func() *cipher.Cipher {
 		c := cipher.NewCipher(cipher.CipherKeySize(args.keySize))
 		c.ErrorLog = errorLog
-		if args.verbose {
-			c.InfoLog = infoLog
-			if args.veryVerbose {
-				c.DebugLog = debugLog
-			}
-		}
+		c.InfoLog = verboseLog
+		c.DebugLog = veryVerboseLog
 		return c
 	}
 }
@@ -199,10 +208,8 @@ func getCipherFactory() cipher.CipherFactory {
 // prepareMode sets the logs on the block cipher mode based on the command line arguments.
 func prepareMode(mode modes.ModeInterface) {
 	mode.SetErrorLog(errorLog)
-	mode.SetInfoLog(infoLog)
-	if args.verbose {
-		mode.SetDebugLog(debugLog)
-	}
+	mode.SetInfoLog(standardLog)
+	mode.SetDebugLog(verboseLog)
 }
 
 // prepareOutput prepares the output by prefixing with info about the initiliazation vector.

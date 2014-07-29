@@ -27,13 +27,13 @@ func readFromFile(f *os.File) []byte {
 	data := make([]byte, fsize)
 	if n, err := f.Read(data); err != nil {
 		if err == io.EOF {
-			debugLog.Println("read to eof", f.Name())
+			veryVerboseLog.Println("read to eof", f.Name())
 			return data
 		}
 		panic(fmt.Sprintf("Error reading from file : %s", err))
 		return nil
-	} else if args.verbose {
-		debugLog.Println(n, "bytes read from", f.Name())
+	} else {
+		verboseLog.Println(n, "bytes read from", f.Name())
 	}
 	return data
 }
@@ -53,9 +53,7 @@ func createFile(name string) *os.File {
 		panic(err)
 		return nil
 	} else {
-		if args.verbose {
-			debugLog.Println("created file", f.Name())
-		}
+		verboseLog.Println("created file", f.Name())
 		return f
 	}
 }
@@ -66,9 +64,7 @@ func openFile(name string) *os.File {
 		panic(err)
 		return nil
 	} else {
-		if args.verbose {
-			debugLog.Println("opened file", f.Name())
-		}
+		veryVerboseLog.Println("opened file", f.Name())
 		return f
 	}
 }
@@ -78,7 +74,5 @@ func closeFile(f *os.File) {
 	if err := f.Close(); err != nil {
 		panic(err)
 	}
-	if args.verbose {
-		debugLog.Println("closed file", f.Name())
-	}
+	veryVerboseLog.Println("closed file", f.Name())
 }
