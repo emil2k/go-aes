@@ -34,7 +34,7 @@ func TestUnpadBlock(t *testing.T) {
 
 // testGetBlock configures and tests the getting of a block.
 // A nil indicates test for out of range panic.
-func testGetBlock(t *testing.T, i int, in []byte, block []byte, isDecrypt bool) {
+func testGetBlock(t *testing.T, i int64, in []byte, block []byte, isDecrypt bool) {
 	if block == nil {
 		defer func() {
 			if r := recover(); r != "Getting block that is out of range" {
@@ -93,7 +93,7 @@ func TestGetOutOfRangeBlockDecrypt(t *testing.T) {
 	testGetBlock(t, 1, in, nil, true)
 }
 
-func testPutBlock(t *testing.T, i int, inputSize int64, out []byte, block []byte, expected []byte, isDecrypt bool) {
+func testPutBlock(t *testing.T, i int64, inputSize int64, out []byte, block []byte, expected []byte, isDecrypt bool) {
 	if block == nil {
 		defer func() {
 			if r := recover(); r != "Putting block that is out of range" {
@@ -107,7 +107,7 @@ func testPutBlock(t *testing.T, i int, inputSize int64, out []byte, block []byte
 	m.PutBlock(i, block)
 	// Now retrieve put block to check
 	b := make([]byte, BlockSize)
-	_, _ = data.Seek(int64(i*BlockSize), 0)
+	_, _ = data.Seek(i*int64(BlockSize), 0)
 	n, _ := data.Read(b)
 	b = b[:n] // trim the block
 	if !bytes.Equal(b, expected) {

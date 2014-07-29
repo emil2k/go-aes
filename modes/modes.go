@@ -63,11 +63,11 @@ func (m *Mode) InitMode(offset int64, size int64, in io.ReadSeeker, out io.Write
 
 // GetBlock gets the ith input block copies data into a slice
 // with a new underlying array. Keeps track of input size.
-func (m *Mode) GetBlock(i int) []byte {
-	if int64(i+1) > m.blocks {
+func (m *Mode) GetBlock(i int64) []byte {
+	if i+1 > m.blocks {
 		m.ErrorLog.Panicf("Getting block that is out of range")
 	}
-	seek := int64(i * BlockSize)
+	seek := i * int64(BlockSize)
 	if m.IsDecrypt {
 		seek += m.offset // offset for metadata during decryption
 	}
@@ -101,11 +101,11 @@ func padBlock(b []byte) []byte {
 
 // PutBlock sets the ith output block, removing padding of the last block.
 // If the last block is all padding won't write anything.
-func (m *Mode) PutBlock(i int, b []byte) {
-	if int64(i+1) > m.blocks {
+func (m *Mode) PutBlock(i int64, b []byte) {
+	if i+1 > m.blocks {
 		m.ErrorLog.Panicf("Putting block that is out of range")
 	}
-	seek := int64(i * BlockSize)
+	seek := i * int64(BlockSize)
 	if !m.IsDecrypt {
 		seek += m.offset // offset for metadata during encryption
 	}

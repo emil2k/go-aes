@@ -28,13 +28,3 @@ func TestGetCounterBlock(t *testing.T) {
 		t.Errorf("Getting counter block failed %s", hex.EncodeToString(x))
 	}
 }
-
-func TestGetCounterBlockPanic(t *testing.T) {
-	defer func() {
-		if r := recover(); r != "over maximum counter 256" {
-			t.Errorf("Get counter block panic failed with %s", r)
-		}
-	}()
-	c := Counter{}
-	c.getCounterBlock(1 << 8) // should panic because the counter can only hold an 8 bit number
-}

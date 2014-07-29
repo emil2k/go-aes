@@ -29,7 +29,8 @@ func (c *Chain) initChain(offset int64, size int64, in io.ReadSeeker, out io.Wri
 func (c *Chain) Encrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
 	c.initChain(offset, size, in, out, ck, nonce, false)
 	bc := c.Cf()
-	for i := 0; int64(i) < c.NBlocks(); i++ {
+	var i int64
+	for i = 0; i < c.NBlocks(); i++ {
 		state := c.GetBlock(i)
 		for i, _ := range state {
 			state[i] ^= c.last[i]
@@ -44,7 +45,8 @@ func (c *Chain) Encrypt(offset int64, size int64, in io.ReadSeeker, out io.Write
 func (c *Chain) Decrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
 	c.initChain(offset, size, in, out, ck, nonce, true)
 	bc := c.Cf()
-	for i := 0; int64(i) < c.NBlocks(); i++ {
+	var i int64
+	for i = 0; i < c.NBlocks(); i++ {
 		ct := c.GetBlock(i) // block of cipher text
 		state := bc.Decrypt(ct, c.Ck)
 		for i, _ := range state {
