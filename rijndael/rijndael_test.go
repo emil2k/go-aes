@@ -29,3 +29,21 @@ func TestMul(t *testing.T) {
 		t.Errorf("Rijndael field multiplication failed with %v", c)
 	}
 }
+
+func BenchmarkAdd(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		Add(0xaa, 0xff)
+	}
+}
+
+func BenchmarkSub(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		Sub(0xaa, 0xff)
+	}
+}
+
+func BenchmarkMul(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		Mul(0xaa, 0xff)
+	}
+}

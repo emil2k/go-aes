@@ -7,16 +7,16 @@ before_install:
         - go get github.com/mattn/goveralls
         - go get code.google.com/p/go.tools/cmd/cover
 script:
-        - go test -covermode=count -coverprofile=main.coverprofile github.com/emil2k/go-aes
-        - go test -covermode=count -coverprofile=cipher.coverprofile github.com/emil2k/go-aes/cipher
-        - go test -covermode=count -coverprofile=key.coverprofile github.com/emil2k/go-aes/key
-        - go test -covermode=count -coverprofile=rijndael.coverprofile github.com/emil2k/go-aes/rijndael
-        - go test -covermode=count -coverprofile=state.coverprofile github.com/emil2k/go-aes/state
-        - go test -covermode=count -coverprofile=word.coverprofile github.com/emil2k/go-aes/word
-        - go test -covermode=count -coverprofile=modes.coverprofile github.com/emil2k/go-aes/modes
-        - go test -covermode=count -coverprofile=modes-ctr.coverprofile github.com/emil2k/go-aes/modes/ctr
-        - go test -covermode=count -coverprofile=modes-cbc.coverprofile github.com/emil2k/go-aes/modes/cbc
-        - go test -covermode=count -coverprofile=util-bytes.coverprofile github.com/emil2k/go-aes/util/bytes
-        - go test -covermode=count -coverprofile=util-rand.coverprofile github.com/emil2k/go-aes/util/rand
+        - go test -bench=. -benchmem -covermode=count -coverprofile=main.coverprofile github.com/emil2k/go-aes
+        - go test -bench=. -benchmem -covermode=count -coverprofile=cipher.coverprofile github.com/emil2k/go-aes/cipher
+        - go test -bench=. -benchmem -covermode=count -coverprofile=key.coverprofile github.com/emil2k/go-aes/key
+        - go test -bench=. -benchmem -covermode=count -coverprofile=rijndael.coverprofile github.com/emil2k/go-aes/rijndael
+        - go test -bench=. -benchmem -covermode=count -coverprofile=state.coverprofile github.com/emil2k/go-aes/state
+        - go test -bench=. -benchmem -covermode=count -coverprofile=word.coverprofile github.com/emil2k/go-aes/word
+        - go test -bench=. -benchmem -covermode=count -coverprofile=modes.coverprofile github.com/emil2k/go-aes/modes
+        - go test -bench=. -benchmem -covermode=count -coverprofile=modes-ctr.coverprofile github.com/emil2k/go-aes/modes/ctr
+        - go test -bench=. -benchmem -covermode=count -coverprofile=modes-cbc.coverprofile github.com/emil2k/go-aes/modes/cbc
+        - go test -bench=. -benchmem -covermode=count -coverprofile=util-bytes.coverprofile github.com/emil2k/go-aes/util/bytes
+        - go test -bench=. -benchmem -covermode=count -coverprofile=util-rand.coverprofile github.com/emil2k/go-aes/util/rand
         - $HOME/gopath/bin/gover
         - $HOME/gopath/bin/goveralls -coverprofile=gover.coverprofile -service travis-ci -repotoken Q7QzTw90aKE1t0u0tiG9QPtZG2sdSAngY
