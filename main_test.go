@@ -1,10 +1,18 @@
 package main
 
-import "bytes"
-import "encoding/hex"
-import "flag"
-import "testing"
-import "os"
+import (
+	"bytes"
+	"encoding/hex"
+	"flag"
+	"log"
+	"os"
+	"testing"
+)
+
+func init() {
+	verboseLog = log.New(os.Stdout, "debug : ", 0)
+	veryVerboseLog = log.New(os.Stdout, "debug : ", 0)
+}
 
 // mockExecute
 func mockExecute(args ...string) {

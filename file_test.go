@@ -3,15 +3,8 @@ package main
 import (
 	"bytes"
 	"encoding/hex"
-	"log"
-	"os"
 	"testing"
 )
-
-func init() {
-	verboseLog = log.New(os.Stdout, "verbose : ", 0)
-	veryVerboseLog = log.New(os.Stdout, "very verbose : ", 0)
-}
 
 func TestCreateFile(t *testing.T) {
 	f := createFile(tf)
