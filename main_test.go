@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/hex"
 	"flag"
+	"github.com/emil2k/go-aes/util/test_files"
 	"log"
 	"os"
 	"testing"
@@ -28,19 +29,20 @@ func mockExecute(args ...string) {
 // Outputs to test files, which are cleaned up afterward.
 func testModeEncryptDecrypt(t *testing.T, mode string) {
 	// Prepare file to encrypt
-	data := []byte{0x01, 0x02, 0x03}
-	f := createFile(tf)
+	f, err := test_files.Open10KBTestFile()
 	defer closeFile(f)
-	defer removeTestFile(t, tf)
-	writeToFile(f, data...)
+	if err != nil {
+		panic(err.Error())
+	}
+	data := readFromFile(f)
 	// Encrypt file
-	key := tf + ".key"
-	encrypted := tf + ".aes"
+	key := test_files.TestFile10KB + ".key"
+	encrypted := test_files.TestFile10KB + ".aes"
 	defer removeTestFile(t, key)
 	defer removeTestFile(t, encrypted)
-	mockExecute("-vv", "-mode", mode, key, tf, encrypted)
+	mockExecute("-vv", "-mode", mode, key, f.Name(), encrypted)
 	// Decrypt file
-	out := tf + ".out"
+	out := test_files.TestOutputFile
 	defer removeTestFile(t, out)
 	mockExecute("-vv", "-d", "-mode", mode, key, encrypted, out)
 	// Inspect output

@@ -18,5 +18,6 @@ script:
         - go test -bench=. -benchmem -covermode=count -coverprofile=modes-cbc.coverprofile github.com/emil2k/go-aes/modes/cbc
         - go test -bench=. -benchmem -covermode=count -coverprofile=util-bytes.coverprofile github.com/emil2k/go-aes/util/bytes
         - go test -bench=. -benchmem -covermode=count -coverprofile=util-rand.coverprofile github.com/emil2k/go-aes/util/rand
+        - go test -bench=. -benchmem -covermode=count -coverprofile=util-test_files.coverprofile github.com/emil2k/go-aes/util/test_files
         - $HOME/gopath/bin/gover
         - $HOME/gopath/bin/goveralls -coverprofile=gover.coverprofile -service travis-ci -repotoken Q7QzTw90aKE1t0u0tiG9QPtZG2sdSAngY
