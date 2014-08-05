@@ -47,3 +47,9 @@ func BenchmarkMul(b *testing.B) {
 		Mul(0xaa, 0xff)
 	}
 }
+
+func BenchmarkRcon(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		Rcon(1)
+	}
+}

@@ -34,9 +34,3 @@ func BenchmarkGetWord(b *testing.B) {
 		k.GetWord(1)
 	}
 }
-
-func BenchmarkRcon(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		Rcon(1)
-	}
-}

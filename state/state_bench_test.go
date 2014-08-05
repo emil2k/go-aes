@@ -1,17 +1,37 @@
 package state
 
 import (
+	"github.com/emil2k/go-aes/word"
 	"testing"
 )
-
-func newState() *State {
-	state := State([]byte{0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c})
-	return &state
-}
 
 func BenchmarkString(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		newState().String()
+	}
+}
+
+func BenchmarkNewStateFromBytes(b *testing.B) {
+	s := []byte{0x2b, 0x7e, 0x15, 0x16, 0x28, 0xae, 0xd2, 0xa6, 0xab, 0xf7, 0x15, 0x88, 0x09, 0xcf, 0x4f, 0x3c}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		NewStateFromBytes(s)
+	}
+}
+
+func BenchmarkNewStateFromWords(b *testing.B) {
+	s := []word.Word{word.Word(0x16157e2b), word.Word(0xa6d2ae28), word.Word(0x8815f7ab), word.Word(0x3c4fcf09)}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		NewStateFromWords(s)
+	}
+}
+
+func BenchmarkGetBytes(b *testing.B) {
+	s := &State{high: 0x3c4fcf098815f7ab, low: 0xa6d2ae2816157e2b}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		s.GetBytes()
 	}
 }
 
@@ -77,7 +97,7 @@ func BenchmarkGetCol(b *testing.B) {
 
 func BenchmarkSetCol(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		newState().SetCol(1, []byte{0x01, 0x02, 0x03, 0x04})
+		newState().SetCol(1, 0x01020304)
 	}
 }
 
@@ -89,6 +109,6 @@ func BenchmarkGetRow(b *testing.B) {
 
 func BenchmarkSetRow(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		newState().SetRow(1, []byte{0x01, 0x02, 0x03, 0x04})
+		newState().SetRow(1, 0x01020304)
 	}
 }

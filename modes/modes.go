@@ -1,7 +1,6 @@
 package modes
 
 import (
-	"encoding/hex"
 	"github.com/emil2k/go-aes/cipher"
 	mlog "github.com/emil2k/go-aes/util/log"
 	"io"
@@ -71,7 +70,6 @@ func (m *Mode) GetBlock(i int64) []byte {
 	if m.IsDecrypt {
 		seek += m.offset // offset for metadata during decryption
 	}
-	m.DebugLog.Println("get block seek", seek)
 	if _, seekErr := m.In.Seek(seek, 0); seekErr != nil {
 		m.ErrorLog.Panicln("Get block seek error :", seekErr.Error())
 	}
@@ -85,7 +83,6 @@ func (m *Mode) GetBlock(i int64) []byte {
 			m.padded = true
 		}
 	}
-	m.DebugLog.Printf("get block %d", i)
 	return t
 }
 
@@ -109,7 +106,6 @@ func (m *Mode) PutBlock(i int64, b []byte) {
 	if !m.IsDecrypt {
 		seek += m.offset // offset for metadata during encryption
 	}
-	m.DebugLog.Println("putting block seek", seek)
 	if _, seekErr := m.Out.Seek(seek, 0); seekErr != nil {
 		m.ErrorLog.Panicln("Put block seek error :", seekErr.Error())
 	}
@@ -120,7 +116,6 @@ func (m *Mode) PutBlock(i int64, b []byte) {
 		if _, err := m.Out.Write(b); err != nil {
 			m.ErrorLog.Panicln("Put block write error :", err.Error())
 		}
-		m.DebugLog.Printf("puting block %d %s", i, hex.EncodeToString(b))
 	}
 }
 

@@ -14,7 +14,7 @@ func init() {
 	veryVerboseLog = log.New(os.Stdout, "debug : ", 0)
 }
 
-// mockExecute
+// mockExecute emulates a command execution.
 func mockExecute(args ...string) {
 	flag.CommandLine = flag.NewFlagSet("go-aes", flag.ExitOnError) // reset the flag set
 	os.Args = []string{"go-aes"}
@@ -23,8 +23,9 @@ func mockExecute(args ...string) {
 	main()
 }
 
-// testModeEncryptDecrypt setups and runs a encrypt/decrypt cycle using the given mode
-// checking that the decryption is the inverse of encryption
+// testModeEncryptDecrypt setups and runs a mock command call to encrypt/decrypt cycle using
+// the given mode checking that the decryption is the inverse of encryption.
+// Outputs to test files, which are cleaned up afterward.
 func testModeEncryptDecrypt(t *testing.T, mode string) {
 	// Prepare file to encrypt
 	data := []byte{0x01, 0x02, 0x03}
@@ -53,4 +54,8 @@ func testModeEncryptDecrypt(t *testing.T, mode string) {
 
 func TestCTRMode(t *testing.T) {
 	testModeEncryptDecrypt(t, "ctr")
+}
+
+func TestCBCMode(t *testing.T) {
+	testModeEncryptDecrypt(t, "cbc")
 }

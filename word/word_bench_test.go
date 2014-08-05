@@ -4,42 +4,38 @@ import (
 	"testing"
 )
 
-func newWord() Word {
-	return Word([]byte{0xC3, 0x89, 0xAF, 0xF8})
-}
-
-func BenchmarkWordString(b *testing.B) {
+func BenchmarkString(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		newWord().String()
 	}
 }
 
-func BenchmarkWordRot(b *testing.B) {
+func BenchmarkRot(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		newWord().Rot(1)
+		newWord().Rot()
 	}
 }
 
-func BenchmarkWordInvRot(b *testing.B) {
+func BenchmarkInvRot(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		newWord().InvRot(1)
+		newWord().InvRot()
 	}
 }
 
-func BenchmarkWordSub(b *testing.B) {
+func BenchmarkSub(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		newWord().Sub()
 	}
 }
 
-func BenchmarkWordInvSub(b *testing.B) {
+func BenchmarkInvSub(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		newWord().InvSub()
 	}
 }
 
-func BenchmarkWordXor(b *testing.B) {
+func BenchmarkXor(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		newWord().Xor(newWord())
+		newWord().Xor(*newWord())
 	}
 }

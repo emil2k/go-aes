@@ -1,7 +1,6 @@
 package ctr
 
 import (
-	"encoding/hex"
 	"github.com/emil2k/go-aes/cipher"
 	"github.com/emil2k/go-aes/modes"
 	"github.com/emil2k/go-aes/util/bytes"
@@ -44,10 +43,8 @@ Loop:
 	for {
 		select {
 		case sem <- 1:
-			c.DebugLog.Println("select, process block", c.i)
 			if c.i < c.NBlocks() {
 				go func(b *blockPayload) {
-					c.DebugLog.Println("running block", b.i)
 					processBlock(b)
 					results <- b
 					<-sem
@@ -55,11 +52,9 @@ Loop:
 				c.i++
 			}
 		case b := <-results:
-			c.DebugLog.Println("select, put result - buffered results", len(results))
 			c.PutBlock(b.i, b.out)
 			rcount++
 			if rcount == c.NBlocks() {
-				c.DebugLog.Println("received all results break loop")
 				break Loop
 			}
 		}
@@ -91,7 +86,6 @@ func (c *Counter) newBlockPayload(i int64, ck []byte) *blockPayload {
 
 // processBlock processes an individual block payload
 func processBlock(b *blockPayload) {
-	b.cipher.DebugLog.Println("process block", b.i, hex.EncodeToString(b.in))
 	cc := b.cipher.Encrypt(b.cb, b.ck) // cipher text from encrypting cipher block
 	b.out = make([]byte, len(b.in))
 	for i, v := range b.in {

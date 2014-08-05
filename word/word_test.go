@@ -1,61 +1,59 @@
 package word
 
-import "bytes"
 import "testing"
 
+// newWord generates a new word for testing purposes.
+// Value is constant at 0x6CA2C19D.
+func newWord() *Word {
+	w := Word(0x6CA2C19D)
+	return &w
+}
+
 func TestWordString(t *testing.T) {
-	w := Word([]byte{0x90, 0x01, 0x02, 0x03})
-	out := "90 1 2 3 "
+	w := Word(0x00A2C19D) // test 0 padding
+	out := "00a2c19d"
 	if x := w.String(); x != out {
 		t.Errorf("Word stringify failed with %s", x)
 	}
 }
 
 func TestWordRot(t *testing.T) {
-	w := Word([]byte{0x90, 0x01, 0x02, 0x03})
-	w.Rot(1)
-	if !bytes.Equal(w, []byte{0x01, 0x02, 0x03, 0x90}) {
-		t.Errorf("Rotation failed with %v", w)
-	}
-	w.Rot(3)
-	if !bytes.Equal(w, []byte{0x90, 0x01, 0x02, 0x03}) {
+	w := newWord()
+	w.Rot()
+	if *w != Word(0x9D6CA2C1) {
 		t.Errorf("Rotation failed with %v", w)
 	}
 }
 
 func TestWordInvRot(t *testing.T) {
-	w := Word([]byte{0x90, 0x01, 0x02, 0x03})
-	w.InvRot(1)
-	if !bytes.Equal(w, []byte{0x03, 0x90, 0x01, 0x02}) {
-		t.Errorf("Inverse rotation failed with %v", w)
-	}
-	w.InvRot(3)
-	if !bytes.Equal(w, []byte{0x90, 0x01, 0x02, 0x03}) {
+	w := newWord()
+	w.InvRot()
+	if *w != Word(0xA2C19D6C) {
 		t.Errorf("Inverse rotation failed with %v", w)
 	}
 }
 
 func TestWordSub(t *testing.T) {
-	w := Word([]byte{0xC3, 0x89, 0xAF, 0xF8})
+	w := newWord()
 	w.Sub()
-	if !bytes.Equal(w, []byte{0x2E, 0xA7, 0x79, 0x41}) {
+	if *w != 0x503A785E {
 		t.Errorf("Substitution failed with %v", w)
 	}
 }
 
 func TestWordInvSub(t *testing.T) {
-	w := Word([]byte{0x2E, 0xA7, 0x79, 0x41})
+	w := newWord()
+	w.Sub() // this should have already been tested separately
 	w.InvSub()
-	if !bytes.Equal(w, []byte{0xC3, 0x89, 0xAF, 0xF8}) {
+	if *w != *newWord() {
 		t.Errorf("Substitution failed with %v", w)
 	}
 }
 
 func TestWordXor(t *testing.T) {
-	w := Word([]byte{0x2E, 0xA7, 0x79, 0x41})
-	xor := Word([]byte{0x2E, 0xA7, 0x79})
-	w.Xor(xor)
-	if !bytes.Equal(w, []byte{0x00, 0x00, 0x00, 0x41}) {
+	w := newWord()
+	w.Xor(*newWord())
+	if *w != 0x00000000 {
 		t.Errorf("Xor failed with %v", w)
 	}
 }
