@@ -37,7 +37,7 @@ func NewStateFromWords(in []word.Word) *State {
 	return &State{high: high, low: low}
 }
 
-// String provides a string representation of a State
+// String provides a string representation of a State.
 func (s *State) String() string {
 	return fmt.Sprintf("%016x%016x", s.high, s.low)
 }
@@ -70,15 +70,14 @@ func (s *State) Sub() {
 	s.eachByte(rj.Sbox)
 }
 
-// InvSub substitutes all the bytes through the inverse s-box
+// InvSub substitutes all the bytes through the inverse s-box.
 func (s *State) InvSub() {
 	s.eachByte(rj.InvSbox)
 }
 
-// Shift rotates the bytes in the last 3 rows of the state
-// row 0 is not shifted while, row 1, 2, and 3 are rotated 1, 2, 3 times respectively
+// Shift rotates the bytes in the last 3 rows of the state.
+// Row 0 is not shifted while, row 1, 2, and 3 are rotated 1, 2, 3 times respectively.
 func (s *State) Shift() {
-	// TODO optimize to remove loops
 	for j := 1; j < 4; j++ {
 		row := word.Word(s.GetRow(j))
 		for i := 0; i < j; i++ {
@@ -88,9 +87,8 @@ func (s *State) Shift() {
 	}
 }
 
-// InvShift rotates the bytes in the last 3 rows of the state, inverse of Shift
+// InvShift rotates the bytes in the last 3 rows of the state, inverse of Shift.
 func (s *State) InvShift() {
-	// TODO optimize to remove loops
 	for j := 1; j < 4; j++ {
 		row := word.Word(s.GetRow(j))
 		for i := 0; i < j; i++ {
@@ -100,14 +98,14 @@ func (s *State) InvShift() {
 	}
 }
 
-// Mix mixes all the columns of the state
+// Mix mixes all the columns of the state.
 func (s *State) Mix() {
 	for i := 0; i < 4; i++ {
 		s.MixCol(i)
 	}
 }
 
-// InvMix mixes all the columns of the state
+// InvMix mixes all the columns of the state.
 func (s *State) InvMix() {
 	for i := 0; i < 4; i++ {
 		s.InvMixCol(i)
@@ -131,8 +129,8 @@ func init() {
 	c(0x0b, &rjMul0b)
 }
 
-// MixCol mixes the ith column in the state
-// multiples the column modulo x^4+1 by the {03}x^3 + {01}x^2 + {01}x + {02}
+// MixCol mixes the ith column in the state.
+// Multiples the column modulo x^4+1 by the {03}x^3 + {01}x^2 + {01}x + {02}.
 func (s *State) MixCol(i int) {
 	c0, c1, c2, c3 := bytes.Split32(s.GetCol(i))
 	var col uint32 = uint32(rj.Sum(rjMul02[c0], rjMul03[c1], c2, c3)) +
@@ -142,8 +140,8 @@ func (s *State) MixCol(i int) {
 	s.SetCol(i, col)
 }
 
-// InvMixCol reverses the mixing of the ith column
-// multiples the column modulo x^4+1 by the {0b}x^3 + {0d}x^2 + {09}x + {0e}
+// InvMixCol reverses the mixing of the ith column.
+// Multiples the column modulo x^4+1 by the {0b}x^3 + {0d}x^2 + {09}x + {0e}.
 func (s *State) InvMixCol(i int) {
 	c0, c1, c2, c3 := bytes.Split32(s.GetCol(i))
 	var col uint32 = uint32(rj.Sum(rjMul0e[c0], rjMul0b[c1], rjMul0d[c2], rjMul09[c3])) +
@@ -153,7 +151,7 @@ func (s *State) InvMixCol(i int) {
 	s.SetCol(i, col)
 }
 
-// Xor xors input with the bytes in the state
+// Xor xors input with the bytes in the state.
 // relies on Word.Xor function
 func (s *State) Xor(input State) {
 	s.low ^= input.low
