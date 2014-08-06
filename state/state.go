@@ -159,46 +159,79 @@ func (s *State) GetCol(i int) uint32 {
 	}
 }
 
+const (
+	setColClear0 uint64 = 0xFFFFFFFF << (iota * 32)
+	setColClear1
+)
+
 // SetCol sets the ith column in the state.
 func (s *State) SetCol(i int, col uint32) {
-	var clear uint64 = 0xFFFFFFFF
 	switch i {
 	case 0:
-		s.low = s.low&^clear + uint64(col)
+		s.low = s.low&^setColClear0 + uint64(col)
 	case 1:
-		s.low = s.low&^(clear<<32) + uint64(col)<<32
+		s.low = s.low&^setColClear1 + uint64(col)<<32
 	case 2:
-		s.high = s.high&^clear + uint64(col)
+		s.high = s.high&^setColClear0 + uint64(col)
 	case 3:
-		s.high = s.high&^(clear<<32) + uint64(col)<<32
+		s.high = s.high&^setColClear1 + uint64(col)<<32
 	}
 }
 
+const (
+	getByte0 uint64 = 0xFF << (iota * 8)
+	getByte1
+	getByte2
+	getByte3
+	getByte4
+	getByte5
+	getByte6
+	getByte7
+)
+
 // GetRow gets the ith row in the state.
-// TODO rewrite this function
 func (s *State) GetRow(i int) uint32 {
 	switch i {
 	case 0:
-		return uint32(s.low&0xFF + (s.low&(0xFF<<32))>>24 + (s.high&(0xFF))<<16 + (s.high&(0xFF<<32))>>8)
+		return uint32(s.low&getByte0 + (s.low&getByte4)>>24 + (s.high&getByte0)<<16 + (s.high&(0xFF<<32))>>8)
 	case 1:
-		return uint32((s.low&(0xFF<<8))>>8 + (s.low&(0xFF<<40))>>32 + (s.high&(0xFF<<8))<<8 + (s.high&(0xFF<<40))>>16)
+		return uint32((s.low&getByte1)>>8 + (s.low&getByte5)>>32 + (s.high&getByte1)<<8 + (s.high&getByte5)>>16)
 	case 2:
-		return uint32((s.low&(0xFF<<16))>>16 + (s.low&(0xFF<<48))>>40 + s.high&(0xFF<<16) + (s.high&(0xFF<<48))>>24)
+		return uint32((s.low&getByte2)>>16 + (s.low&getByte6)>>40 + s.high&getByte2 + (s.high&getByte6)>>24)
 	case 3:
-		return uint32((s.low&(0xFF<<24))>>24 + (s.low&(0xFF<<56))>>48 + (s.high&(0xFF<<24))>>8 + (s.high&(0xFF<<56))>>32)
+		return uint32((s.low&getByte3)>>24 + (s.low&getByte7)>>48 + (s.high&getByte3)>>8 + (s.high&getByte7)>>32)
 	default:
 		panic("row out of range")
 	}
 }
 
+const (
+	setRowClear0 uint64 = 0xFF000000FF << (iota * 8)
+	setRowClear1
+	setRowClear2
+	setRowClear3
+)
+
 // SetRow sets the ith row in the state.
 func (s *State) SetRow(i int, row uint32) {
-	var clear uint64 = 0xFF000000FF
-	r0, r1, r2, r3 := bytes.Split32(row)
-	s.low &^= clear << uint(i*8)
-	s.high &^= clear << uint(i*8)
-	s.low += uint64(r0) << uint(i*8)
-	s.low += uint64(r1) << uint(i*8+32)
-	s.high += uint64(r2) << uint(i*8)
-	s.high += uint64(r3) << uint(i*8+32)
+	r0 := uint64(row) & getByte0
+	r1 := uint64(row) & getByte1
+	r2 := uint64(row) & getByte2
+	r3 := uint64(row) & getByte3
+	switch i {
+	case 0:
+		s.low = s.low&^setRowClear0 + r0 + r1<<24
+		s.high = s.high&^setRowClear0 + r2>>16 + r3<<8
+	case 1:
+		s.low = s.low&^setRowClear1 + r0<<8 + r1<<32
+		s.high = s.high&^setRowClear1 + r2>>8 + r3<<16
+	case 2:
+		s.low = s.low&^setRowClear2 + r0<<16 + r1<<40
+		s.high = s.high&^setRowClear2 + r2 + r3<<24
+	case 3:
+		s.low = s.low&^setRowClear3 + r0<<24 + r1<<48
+		s.high = s.high&^setRowClear3 + r2<<8 + r3<<32
+	default:
+		panic("row out of range")
+	}
 }
