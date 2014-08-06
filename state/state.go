@@ -114,14 +114,31 @@ func (s *State) InvMix() {
 	}
 }
 
+var rjMul02, rjMul03, rjMul09, rjMul0e, rjMul0d, rjMul0b [256]byte // precomputed Rijndael multplication tables.
+
+// init precomputes the rjMul02 and rjMul03 multiplication tables.
+func init() {
+	c := func(m byte, set *[256]byte) {
+		for i := 0; i < 256; i++ {
+			(*set)[i] = rj.Mul(m, byte(i))
+		}
+	}
+	c(0x02, &rjMul02)
+	c(0x03, &rjMul03)
+	c(0x09, &rjMul09)
+	c(0x0e, &rjMul0e)
+	c(0x0d, &rjMul0d)
+	c(0x0b, &rjMul0b)
+}
+
 // MixCol mixes the ith column in the state
 // multiples the column modulo x^4+1 by the {03}x^3 + {01}x^2 + {01}x + {02}
 func (s *State) MixCol(i int) {
 	c0, c1, c2, c3 := bytes.Split32(s.GetCol(i))
-	var col uint32 = uint32(rj.Sum(rj.Mul(0x02, c0), rj.Mul(0x03, c1), c2, c3)) +
-		uint32(rj.Sum(c0, rj.Mul(0x02, c1), rj.Mul(0x03, c2), c3))<<8 +
-		uint32(rj.Sum(c0, c1, rj.Mul(0x02, c2), rj.Mul(0x03, c3)))<<16 +
-		uint32(rj.Sum(rj.Mul(0x03, c0), c1, c2, rj.Mul(0x02, c3)))<<24
+	var col uint32 = uint32(rj.Sum(rjMul02[c0], rjMul03[c1], c2, c3)) +
+		uint32(rj.Sum(c0, rjMul02[c1], rjMul03[c2], c3))<<8 +
+		uint32(rj.Sum(c0, c1, rjMul02[c2], rjMul03[c3]))<<16 +
+		uint32(rj.Sum(rjMul03[c0], c1, c2, rjMul02[c3]))<<24
 	s.SetCol(i, col)
 }
 
@@ -129,10 +146,10 @@ func (s *State) MixCol(i int) {
 // multiples the column modulo x^4+1 by the {0b}x^3 + {0d}x^2 + {09}x + {0e}
 func (s *State) InvMixCol(i int) {
 	c0, c1, c2, c3 := bytes.Split32(s.GetCol(i))
-	var col uint32 = uint32(rj.Sum(rj.Mul(0x0e, c0), rj.Mul(0x0b, c1), rj.Mul(0x0d, c2), rj.Mul(0x09, c3))) +
-		uint32(rj.Sum(rj.Mul(0x09, c0), rj.Mul(0x0e, c1), rj.Mul(0x0b, c2), rj.Mul(0x0d, c3)))<<8 +
-		uint32(rj.Sum(rj.Mul(0x0d, c0), rj.Mul(0x09, c1), rj.Mul(0x0e, c2), rj.Mul(0x0b, c3)))<<16 +
-		uint32(rj.Sum(rj.Mul(0x0b, c0), rj.Mul(0x0d, c1), rj.Mul(0x09, c2), rj.Mul(0x0e, c3)))<<24
+	var col uint32 = uint32(rj.Sum(rjMul0e[c0], rjMul0b[c1], rjMul0d[c2], rjMul09[c3])) +
+		uint32(rj.Sum(rjMul09[c0], rjMul0e[c1], rjMul0b[c2], rjMul0d[c3]))<<8 +
+		uint32(rj.Sum(rjMul0d[c0], rjMul09[c1], rjMul0e[c2], rjMul0b[c3]))<<16 +
+		uint32(rj.Sum(rjMul0b[c0], rjMul0d[c1], rjMul09[c2], rjMul0e[c3]))<<24
 	s.SetCol(i, col)
 }
 
