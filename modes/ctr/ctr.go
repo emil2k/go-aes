@@ -32,33 +32,44 @@ func (c *Counter) initCounter(offset int64, size int64, in io.ReadSeeker, out io
 	c.nonce = nonce
 }
 
-// processCounterCore runs the core of the counter mode each block is run
-// on separate goroutines and gathered together at the end
-func (c *Counter) processCounterCore() {
+// processCore synchronously process buffer blocks.
+func (c *Counter) processCore() {
+	for i := int64(0); i < c.NBuffers(); i++ {
+		c.processBuffer()
+	}
+}
+
+// processBuffer runs the counter mode on a buffer block, when done it flushes the buffer to output.
+// Blocks inside the buffer block are processed asynchronously on separate goroutines but processing
+// of each buffer block must be done in synchronous fashion.
+func (c *Counter) processBuffer() {
 	c.DebugLog.Println(runtime.NumCPU(), "number of CPUs")
 	sem := make(chan int, runtime.NumCPU())                // controls goroutine allocation
 	results := make(chan *blockPayload, resultsBufferSize) // collects individual completed results
+	var dcount int64 = 0                                   // keep track of dispatched block processing jobs
 	var rcount int64 = 0                                   // count of results received
 Loop:
 	for {
 		select {
 		case sem <- 1:
-			if c.i < c.NBlocks() {
+			if i := c.i + dcount; dcount < int64(modes.NBufferBlocks) && i < c.NBlocks() {
 				go func(b *blockPayload) {
 					processBlock(b)
 					results <- b
 					<-sem
-				}(c.newBlockPayload(c.i, c.Ck))
-				c.i++
+				}(c.newBlockPayload(i, c.Ck))
+				dcount++
 			}
 		case b := <-results:
 			c.PutBlock(b.i, b.out)
 			rcount++
-			if rcount == c.NBlocks() {
+			if i := c.i + rcount; rcount == int64(modes.NBufferBlocks) || i == c.NBlocks() {
 				break Loop
 			}
 		}
 	}
+	c.i += rcount // iterate index by number processed
+	c.FlushOutBuffer()
 }
 
 // blockPayload keeps the state of a block while it is being processed
@@ -96,13 +107,13 @@ func processBlock(b *blockPayload) {
 // Encrypt encrypts the input using CTR mode
 func (c *Counter) Encrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
 	c.initCounter(offset, size, in, out, ck, nonce, false)
-	c.processCounterCore()
+	c.processCore()
 }
 
 // Decrypt decrypts the input using CTR mode
 func (c *Counter) Decrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
 	c.initCounter(offset, size, in, out, ck, nonce, true)
-	c.processCounterCore()
+	c.processCore()
 }
 
 // getCounterBlock gets the ith counter 16 byte block copies the data into a slice with a new underlying array.

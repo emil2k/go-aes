@@ -14,17 +14,17 @@ import (
 func TestEncryptDecrypt(t *testing.T, mode ModeInterface, ck []byte, nonce []byte) {
 	expected := []byte{0x01, 0x02, 0x03}
 	data := []byte{0x01, 0x02, 0x03}
-	outData := make([]byte, BlockSize)
 	// Setup input for encryption
 	in := bytes.NewReader(data)
-	out := mbytes.NewReadWriteSeeker(outData)
+	out := mbytes.NewReadWriteSeeker(make([]byte, 0))
 	mode.Encrypt(0, int64(len(data)), in, out, ck, nonce)
 	// Setup input for decryption
-	in = bytes.NewReader(outData)
-	out = mbytes.NewReadWriteSeeker(data)
-	mode.Decrypt(0, int64(len(outData)), in, out, ck, nonce)
-	if !bytes.Equal(data, expected) {
-		t.Errorf("Encryption followed by decryption failed with %s", hex.EncodeToString(data))
+	dData := out.Bytes()
+	dIn := bytes.NewReader(dData)
+	dOut := mbytes.NewReadWriteSeeker(make([]byte, 0))
+	mode.Decrypt(0, int64(len(dData)), dIn, dOut, ck, nonce)
+	if x := dOut.Bytes(); !bytes.Equal(x, expected) {
+		t.Errorf("Encryption followed by decryption failed with %s", hex.EncodeToString(x))
 	}
 }
 

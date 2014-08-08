@@ -5,8 +5,31 @@ import (
 	"encoding/hex"
 	mbytes "github.com/emil2k/go-aes/util/bytes"
 	"github.com/emil2k/go-aes/util/rand"
+	"io"
 	"testing"
 )
+
+func TestCalculateBlocks(t *testing.T) {
+	test := func(size int64, isDecrypt bool, blocks int64) {
+		if x := calculateBlocks(size, isDecrypt); x != blocks {
+			t.Errorf("Calculate blocks failed for %d (decrypting? %s) should be %d was %d", size, isDecrypt, blocks, x)
+		}
+	}
+	test(1, false, 1)
+	test(17, false, 2)
+	test(16, true, 1)
+}
+
+func TestNBuffers(t *testing.T) {
+	test := func(blocks, buffers int64) {
+		if x := calculateBuffers(blocks); x != buffers {
+			t.Errorf("Calculate buffers failed for %d should be %d was %d", blocks, buffers, x)
+		}
+	}
+	test(1, 1)
+	test(int64(NBufferBlocks), 1)
+	test(int64(NBufferBlocks+1), 2)
+}
 
 // TestPadBlock test padding a block.
 func TestPadBlock(t *testing.T) {
@@ -43,7 +66,10 @@ func testGetBlock(t *testing.T, i int64, in []byte, block []byte, isDecrypt bool
 		}()
 	}
 	m := NewMode(nil)
-	m.InitMode(0, int64(len(in)), bytes.NewReader(in), nil, nil, isDecrypt)
+	m.InitMode(0, int64(len(in)),
+		bytes.NewReader(in),
+		mbytes.NewReadWriteSeeker(make([]byte, len(in))),
+		nil, isDecrypt)
 	if b := m.GetBlock(i); !bytes.Equal(b, block) {
 		t.Errorf("Get block failed with %s", hex.EncodeToString(b))
 	}
@@ -101,17 +127,21 @@ func testPutBlock(t *testing.T, i int64, inputSize int64, out []byte, block []by
 			}
 		}()
 	}
-	data := mbytes.NewReadWriteSeeker(out)
+	r := mbytes.NewReadWriteSeeker(make([]byte, 0)) // dummy reader, not used
+	w := mbytes.NewReadWriteSeeker(out)
 	m := NewMode(nil)
-	m.InitMode(0, inputSize, nil, data, nil, isDecrypt)
+	m.InitMode(0, inputSize, r, w, nil, isDecrypt)
 	m.PutBlock(i, block)
 	// Now retrieve put block to check
 	b := make([]byte, BlockSize)
-	_, _ = data.Seek(i*int64(BlockSize), 0)
-	n, _ := data.Read(b)
+	_, _ = m.OutBuffer.Seek(i*int64(BlockSize), 0)
+	n, err := m.OutBuffer.Read(b)
+	if err != io.EOF && err != nil {
+		t.Errorf("Unexpected error while trying to read put block : %s", err.Error())
+	}
 	b = b[:n] // trim the block
 	if !bytes.Equal(b, expected) {
-		t.Errorf("Put block failed with %s", hex.EncodeToString(b))
+		t.Errorf("Put block failed with %s expected %s", hex.EncodeToString(b), hex.EncodeToString(expected))
 	}
 }
 

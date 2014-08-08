@@ -78,3 +78,18 @@ func TestSeekWrite(t *testing.T) {
 	}
 
 }
+
+func TestWriteExtend(t *testing.T) {
+	w := NewReadWriteSeeker(make([]byte, 0)) // 0 byte slice which will need to extend
+	w.pos = 2
+	in := []byte{0x01, 0x02, 0x03}
+	out := []byte{0x00, 0x00, 0x01, 0x02, 0x03}
+	n, err := w.Write(in)
+	if n != 3 {
+		t.Errorf("Write extend failed returned wrong bytes written.")
+	} else if err != nil {
+		t.Errorf("Unexpected error reported during write : %s", err.Error())
+	} else if b := w.Bytes(); !obytes.Equal(b, out) {
+		t.Errorf("Written data %s does not match input %s", hex.EncodeToString(b), hex.EncodeToString(out))
+	}
+}
