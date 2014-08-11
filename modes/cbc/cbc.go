@@ -31,6 +31,7 @@ func (c *Chain) initChain(offset int64, size int64, in io.ReadSeeker, out io.Wri
 func (c *Chain) processBlocks(process func(i int64)) {
 	// Process one buffer block at a time
 	for j := 0; int64(j) < c.NBuffers(); j++ {
+		c.FillInBuffer()
 		// Process each block in the buffer block
 		for k := 0; k < modes.NBufferBlocks; k++ {
 			i := int64(k + j*modes.NBufferBlocks)
@@ -40,6 +41,7 @@ func (c *Chain) processBlocks(process func(i int64)) {
 			process(i) // process the buffer block
 		}
 		c.FlushOutBuffer()
+		c.TruncateInBuffer()
 	}
 }
 

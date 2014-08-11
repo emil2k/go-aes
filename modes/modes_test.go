@@ -9,6 +9,17 @@ import (
 	"testing"
 )
 
+func TestCalculateInputBufferSize(t *testing.T) {
+	test := func(inputSize, expectedBufferSize int64) {
+		if x := calculateInputBufferSize(inputSize); x != expectedBufferSize {
+			t.Errorf("Calculating input buffer size failed with %d for input size %d expected %d", x, inputSize, expectedBufferSize)
+		}
+	}
+	bpb := int64(NBufferBlocks * BlockSize) // bytes per buffer block
+	test(1+bpb, 1)
+	test(bpb, bpb)
+}
+
 func TestCalculateBlocks(t *testing.T) {
 	test := func(size int64, isDecrypt bool, blocks int64) {
 		if x := calculateBlocks(size, isDecrypt); x != blocks {
@@ -70,8 +81,9 @@ func testGetBlock(t *testing.T, i int64, in []byte, block []byte, isDecrypt bool
 		bytes.NewReader(in),
 		mbytes.NewReadWriteSeeker(make([]byte, len(in))),
 		nil, isDecrypt)
+	m.FillInBuffer() // getting from input buffer
 	if b := m.GetBlock(i); !bytes.Equal(b, block) {
-		t.Errorf("Get block failed with %s", hex.EncodeToString(b))
+		t.Errorf("Get block failed with %s expected %s", hex.EncodeToString(b), hex.EncodeToString(block))
 	}
 }
 

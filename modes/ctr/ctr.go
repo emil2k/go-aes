@@ -48,6 +48,7 @@ func (c *Counter) processBuffer() {
 	results := make(chan *blockPayload, resultsBufferSize) // collects individual completed results
 	var dcount int64 = 0                                   // keep track of dispatched block processing jobs
 	var rcount int64 = 0                                   // count of results received
+	c.FillInBuffer()
 Loop:
 	for {
 		select {
@@ -70,6 +71,7 @@ Loop:
 	}
 	c.i += rcount // iterate index by number processed
 	c.FlushOutBuffer()
+	c.TruncateInBuffer()
 }
 
 // blockPayload keeps the state of a block while it is being processed

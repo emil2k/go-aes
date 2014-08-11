@@ -9,8 +9,8 @@ import (
 	"log"
 )
 
-const BlockSize int = 16       // size of processing blocks in bytes
-const NBufferBlocks int = 1000 // number of blocks to store in the buffer
+const BlockSize int = 16             // size of processing blocks in bytes
+const NBufferBlocks int = 100 * 1000 // number of blocks to store in the buffer
 
 // ModeInterface defines the common methods that need to be implemented to operate
 // as a block cipher mode.
@@ -25,13 +25,14 @@ type Mode struct {
 	Cf        cipher.CipherFactory   // creates an instance of the block cipher
 	Ck        []byte                 // cipher key
 	offset    int64                  // offset in bytes, on input if decrypting on output if encrypting
-	In        io.ReadSeeker          // input data stream // TODO should this be a pointer?
+	In        io.ReadSeeker          // input data stream
+	InBuffer  *bytes.ReadWriteSeeker // input buffer
 	size      int64                  // size of original input in bytes
 	blocks    int64                  // number of blocks to process
 	buffers   int64                  // number of buffer blocks to process
 	flushed   bool                   // whether end of file was reached on input data stream
 	padded    bool                   // whether input stream has already been padded, only for encryption
-	Out       io.WriteSeeker         // ouput data stream // TODO should this be a pointer?
+	Out       io.WriteSeeker         // ouput data stream
 	OutBuffer *bytes.ReadWriteSeeker // output buffer
 	IsDecrypt bool                   // whether running decryption
 	ErrorLog  *log.Logger            // log for errors
@@ -54,6 +55,7 @@ func NewMode(cf cipher.CipherFactory) *Mode {
 func (m *Mode) InitMode(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, isDecrypt bool) {
 	m.IsDecrypt = isDecrypt
 	m.In = in
+	m.InBuffer = bytes.NewReadWriteSeeker(make([]byte, 0, NBufferBlocks*BlockSize))
 	m.Out = out
 	m.OutBuffer = bytes.NewReadWriteSeeker(make([]byte, 0, NBufferBlocks*BlockSize))
 	m.Ck = ck
@@ -79,15 +81,12 @@ func (m *Mode) GetBlock(i int64) []byte {
 	if i+1 > m.blocks {
 		m.ErrorLog.Panicf("Getting block that is out of range")
 	}
-	seek := i * int64(BlockSize)
-	if m.IsDecrypt {
-		seek += m.offset // offset for metadata during decryption
-	}
-	if _, seekErr := m.In.Seek(seek, 0); seekErr != nil {
+	seek := i % int64(NBufferBlocks) * int64(BlockSize) // seek in the current buffer block
+	if _, seekErr := m.InBuffer.Seek(seek, 0); seekErr != nil {
 		m.ErrorLog.Panicln("Get block seek error :", seekErr.Error())
 	}
 	t := make([]byte, BlockSize)
-	if n, err := m.In.Read(t); err != nil && err != io.EOF {
+	if n, err := m.InBuffer.Read(t); err != nil && err != io.EOF {
 		m.ErrorLog.Panicln("Get block read error :", err.Error())
 	} else if n < BlockSize {
 		m.flushed = true
@@ -107,6 +106,33 @@ func padBlock(b []byte) []byte {
 		b = append(b, byte(pad))
 	}
 	return b
+}
+
+// FillInBuffer reads in bytes into the input buffer. Buffering is meant reduce the
+// number of times seeking and reading from disk.
+func (m *Mode) FillInBuffer() {
+	t := make([]byte, calculateInputBufferSize(m.size))
+	if _, err := m.In.Read(t); err != nil {
+		m.ErrorLog.Println("Filling in buffer error when reading from input : ", err.Error())
+	}
+	if _, err := m.InBuffer.Write(t); err != nil {
+		m.ErrorLog.Println("Filling in buffer error : ", err.Error())
+	}
+}
+
+// calculateInputBufferSize determines the size of the input buffer based on the original input size.
+func calculateInputBufferSize(inputSize int64) int64 {
+	bpb := int64(NBufferBlocks * BlockSize) // bytes per buffer block
+	if r := inputSize % bpb; r == 0 {
+		return bpb
+	} else {
+		return r
+	}
+}
+
+// TruncateInBuffer resets the input buffer.
+func (m *Mode) TruncateInBuffer() {
+	m.InBuffer.Truncate()
 }
 
 // FlusOutBuffer flushes the output buffer to the out writer, truncating the buffer.
