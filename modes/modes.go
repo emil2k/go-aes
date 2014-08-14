@@ -79,10 +79,6 @@ func (m *Mode) InitMode(offset uint64, size uint64, in io.ReadSeeker, out io.Wri
 
 // GetBlock gets the ith input block, a State instance, from the input buffer.
 func (m *Mode) GetBlock(i uint64) state.State {
-	// TODO remove this panic, unnecessary slow down
-	if i+1 > m.blocks {
-		m.ErrorLog.Panicf("Getting block that is out of range")
-	}
 	bi := i % NBufferBlocks // in the current buffer block
 	return m.InBuffer[bi]
 }
@@ -148,10 +144,6 @@ func (m *Mode) FlushOutBuffer() {
 // PutBlock sets the ith output block, removing padding of the last block.
 // If the last block is all padding won't write anything.
 func (m *Mode) PutBlock(i uint64, b state.State) {
-	// TODO remove this panic it slows down process
-	if i+1 > m.blocks {
-		m.ErrorLog.Panicf("Putting block that is out of range")
-	}
 	bi := i % NBufferBlocks // in the current buffer
 	m.OutBuffer[bi] = b
 	if i > m.putMax {
