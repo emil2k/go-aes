@@ -36,7 +36,7 @@ type CommandArguments struct {
 	veryVerbose bool   // whether to log very verbose ouput, including info from block cipher
 	isDecrypt   bool   // whether decrypting
 	mode        string // string identifier for the block cipher mode
-	keySize     int64  // cipher key size in bits
+	keySize     uint64 // cipher key size in bits
 	key         string // the file path for the cipher key, encryption will generate a cipher key at the location
 	input       string // the file path for the input
 	output      string // the file path for the output
@@ -91,7 +91,7 @@ func prepareFlags() {
 	flag.BoolVar(&args.veryVerbose, "vv", false, "very verbose output, includes debugging from block cipher")
 	flag.BoolVar(&args.isDecrypt, "d", false, "whether in encryption mode")
 	flag.StringVar(&args.mode, "mode", "ctr", "block cipher mode, `ctr` for counter or `cbc` for chain-block chaining")
-	flag.Int64Var(&args.keySize, "size", 128, "cipher key size in bits, for encryption only")
+	flag.Uint64Var(&args.keySize, "size", 128, "cipher key size in bits, for encryption only")
 }
 
 // prepareLogs initiates the different logs based on the verbose parameters.
@@ -135,7 +135,7 @@ func encrypt() {
 	prepareMode(mode)
 	prepareOutput(ofile, nonce)
 	// Run the encryption
-	mode.Encrypt(int64(len(nonce)+1), getFileSize(args.input), ifile, ofile, ck, nonce)
+	mode.Encrypt(uint64(len(nonce)+1), uint64(getFileSize(args.input)), ifile, ofile, ck, nonce)
 	standardLog.Println("encryption stored in", ofile.Name())
 	writeToFile(kfile, ck...)
 	standardLog.Println("cipher key stored in", kfile.Name())
@@ -151,7 +151,7 @@ func decrypt() {
 	} else if !info.Mode().IsRegular() {
 		panic("key file is not a regular file")
 	} else {
-		args.keySize = info.Size() * 8
+		args.keySize = uint64(info.Size()) * 8
 		checkKeySize(args.keySize)
 	}
 	ifile, ofile := openFile(args.input), createFile(args.output)
@@ -174,19 +174,19 @@ func decrypt() {
 	}
 	prepareMode(mode)
 	// Run the decryption
-	mode.Decrypt(int64(len(nonce)+1), getFileSize(args.input)-int64(len(nonce)+1), ifile, ofile, ck, nonce)
+	mode.Decrypt(uint64(len(nonce)+1), uint64(getFileSize(args.input))-uint64(len(nonce)+1), ifile, ofile, ck, nonce)
 	standardLog.Println("decryption stored in", ofile.Name())
 }
 
 // fatalPanic in case of a recovered panic logs and exits execution with code 1.
 func fatalPanic() {
-	if r := recover(); r != nil {
-		errorLog.Fatal(r)
-	}
+	// if r := recover(); r != nil {
+	// 	errorLog.Fatal(r)
+	// }
 }
 
 // checkKeySize checks the passed key size in bits, panics if invalid cipher key size.
-func checkKeySize(k int64) {
+func checkKeySize(k uint64) {
 	switch cipher.CipherKeySize(k) {
 	case cipher.CK128, cipher.CK192, cipher.CK256:
 	default:

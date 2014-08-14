@@ -3,6 +3,7 @@ package ctr
 import (
 	"github.com/emil2k/go-aes/cipher"
 	"github.com/emil2k/go-aes/modes"
+	"github.com/emil2k/go-aes/state"
 	"github.com/emil2k/go-aes/util/bytes"
 	"io"
 	"runtime"
@@ -14,8 +15,8 @@ const resultsBufferSize int = 30 // buffer size of channel receiving results
 // used for encryption or decryption
 type Counter struct {
 	modes.Mode
-	i     int64  // keeps track of the counter
-	nonce []byte // initialization vector
+	i     uint64 // keeps track of the counter
+	nonce uint64 // initialization vector
 }
 
 // NewCounter constructs a new counter instance with logs that discard output
@@ -26,15 +27,15 @@ func NewCounter(cf cipher.CipherFactory) *Counter {
 }
 
 // initCounter initializes a counter either for encryption or decryption
-func (c *Counter) initCounter(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte, isDecrypt bool) {
+func (c *Counter) initCounter(offset uint64, size uint64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte, isDecrypt bool) {
 	c.InitMode(offset, size, in, out, ck, isDecrypt)
 	c.i = 0
-	c.nonce = nonce
+	c.nonce = bytes.DecodeIntFromBytes(nonce)
 }
 
 // processCore synchronously process buffer blocks.
 func (c *Counter) processCore() {
-	for i := int64(0); i < c.NBuffers(); i++ {
+	for i := uint64(0); i < c.NBuffers(); i++ {
 		c.processBuffer()
 	}
 }
@@ -46,83 +47,75 @@ func (c *Counter) processBuffer() {
 	c.DebugLog.Println(runtime.NumCPU(), "number of CPUs")
 	sem := make(chan int, runtime.NumCPU())                // controls goroutine allocation
 	results := make(chan *blockPayload, resultsBufferSize) // collects individual completed results
-	var dcount int64 = 0                                   // keep track of dispatched block processing jobs
-	var rcount int64 = 0                                   // count of results received
+	var dcount uint64 = 0                                  // keep track of dispatched block processing jobs
+	var rcount uint64 = 0                                  // count of results received
 	c.FillInBuffer()
 Loop:
 	for {
 		select {
 		case sem <- 1:
-			if i := c.i + dcount; dcount < int64(modes.NBufferBlocks) && i < c.NBlocks() {
+			if i := c.i + dcount; dcount < modes.NBufferBlocks && i < c.NBlocks() {
 				go func(b *blockPayload) {
-					processBlock(b)
+					b.process()
 					results <- b
 					<-sem
-				}(c.newBlockPayload(i, c.Ck))
+				}(newBlockPayload(c.Cf(), i, c.GetBlock(i), getCounterBlock(c.nonce, i), c.Ck))
 				dcount++
 			}
 		case b := <-results:
 			c.PutBlock(b.i, b.out)
 			rcount++
-			if i := c.i + rcount; rcount == int64(modes.NBufferBlocks) || i == c.NBlocks() {
+			if i := c.i + rcount; rcount == modes.NBufferBlocks || i == c.NBlocks() {
 				break Loop
 			}
 		}
 	}
 	c.i += rcount // iterate index by number processed
 	c.FlushOutBuffer()
-	c.TruncateInBuffer()
 }
 
 // blockPayload keeps the state of a block while it is being processed
 // in a goroutine and is then sent back as the result over a channel
 type blockPayload struct {
 	cipher *cipher.Cipher // block cipher used
-	i      int64          // block number
-	in     []byte         // input block
-	out    []byte         // output of block
+	i      uint64         // block number
+	in     state.State    // input block
+	out    state.State    // output of block
 	ck     []byte         // cipher key
-	cb     []byte         // counter block
+	cb     state.State    // counter block
 }
 
 // newBlockPayload creates a new instance of a block payload
-func (c *Counter) newBlockPayload(i int64, ck []byte) *blockPayload {
+func newBlockPayload(c *cipher.Cipher, i uint64, in state.State, cb state.State, ck []byte) *blockPayload {
 	return &blockPayload{
 		i:      i,
-		cipher: c.Cf(),
-		in:     c.GetBlock(i),
-		out:    make([]byte, 0),
+		cipher: c,
+		in:     in,
 		ck:     ck,
-		cb:     c.getCounterBlock(i),
+		cb:     cb,
 	}
 }
 
 // processBlock processes an individual block payload
-func processBlock(b *blockPayload) {
-	cc := b.cipher.Encrypt(b.cb, b.ck) // cipher text from encrypting cipher block
-	b.out = make([]byte, len(b.in))
-	for i, v := range b.in {
-		b.out[i] = v ^ cc[i]
-	}
+func (b *blockPayload) process() {
+	b.out = b.cipher.Encrypt(b.cb, b.ck) // cipher text from encrypting cipher block
+	b.out.Xor(b.in)
 }
 
 // Encrypt encrypts the input using CTR mode
-func (c *Counter) Encrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
+func (c *Counter) Encrypt(offset uint64, size uint64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
 	c.initCounter(offset, size, in, out, ck, nonce, false)
 	c.processCore()
 }
 
 // Decrypt decrypts the input using CTR mode
-func (c *Counter) Decrypt(offset int64, size int64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
+func (c *Counter) Decrypt(offset uint64, size uint64, in io.ReadSeeker, out io.WriteSeeker, ck []byte, nonce []byte) {
 	c.initCounter(offset, size, in, out, ck, nonce, true)
 	c.processCore()
 }
 
-// getCounterBlock gets the ith counter 16 byte block copies the data into a slice with a new underlying array.
-// The first 8 bytes of the block are the nonce the last 8 bytes representing the count.
-func (c *Counter) getCounterBlock(i int64) []byte {
-	t := make([]byte, 0)
-	t = append(t, c.nonce...)
-	t = append(t, bytes.EncodeIntToBytes(i)...)
-	return t
+// getCounterBlock gets the ith counter block, the first 8 bytes of the block are the nonce the last 8 bytes
+// representing the count.
+func getCounterBlock(nonce uint64, i uint64) state.State {
+	return state.State{High: i, Low: nonce}
 }

@@ -14,5 +14,5 @@ func TestEncryptDecrypt(t *testing.T) {
 		return cipher.NewCipher(cipher.CK128)
 	}
 	chain := NewChain(cf)
-	modes.TestEncryptDecrypt(t, chain, ck, nonce)
+	modes.EncryptDecryptTest(t, chain, ck, nonce)
 }

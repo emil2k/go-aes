@@ -28,7 +28,7 @@ func BenchmarkNewStateFromWords(b *testing.B) {
 }
 
 func BenchmarkGetBytes(b *testing.B) {
-	s := &State{high: 0x3c4fcf098815f7ab, low: 0xa6d2ae2816157e2b}
+	s := &State{High: 0x3c4fcf098815f7ab, Low: 0xa6d2ae2816157e2b}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		s.GetBytes()

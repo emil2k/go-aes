@@ -55,8 +55,8 @@ func NewCipher(ck CipherKeySize) *Cipher {
 }
 
 // initCipher initializes the cipher either for encryption or decryption
-func (c *Cipher) initCipher(in []byte, ck []byte, isDecrypt bool) {
-	c.state = state.NewStateFromBytes(in)
+func (c *Cipher) initCipher(in state.State, ck []byte, isDecrypt bool) {
+	c.state = &in
 	c.InfoLog.Println(c.state, "input")
 	c.key = key.NewKey(c.nk, ck)
 	c.r = 0
@@ -64,7 +64,7 @@ func (c *Cipher) initCipher(in []byte, ck []byte, isDecrypt bool) {
 }
 
 // Encrypt configures a cipher and runs an encryption on the input
-func (c *Cipher) Encrypt(in []byte, ck []byte) []byte {
+func (c *Cipher) Encrypt(in state.State, ck []byte) state.State {
 	c.initCipher(in, ck, false)
 	c.AddRoundKey()
 	for c.r <= c.nr {
@@ -76,11 +76,11 @@ func (c *Cipher) Encrypt(in []byte, ck []byte) []byte {
 		c.AddRoundKey()
 	}
 	c.InfoLog.Println(c.state, "encrypted")
-	return c.state.GetBytes()
+	return *c.state
 }
 
 // Decrypt configures the cipher and runs a decryption on the cipher text
-func (c *Cipher) Decrypt(in []byte, ck []byte) []byte {
+func (c *Cipher) Decrypt(in state.State, ck []byte) state.State {
 	c.initCipher(in, ck, true)
 	c.AddRoundKey()
 	for c.r <= c.nr {
@@ -92,7 +92,7 @@ func (c *Cipher) Decrypt(in []byte, ck []byte) []byte {
 		c.AddRoundKey()
 	}
 	c.InfoLog.Println(c.state, "decrypted")
-	return c.state.GetBytes()
+	return *c.state
 }
 
 // String provides a string representation of the currest cipher state

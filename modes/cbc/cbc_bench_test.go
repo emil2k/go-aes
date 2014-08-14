@@ -14,5 +14,5 @@ func BenchmarkEncrypt(b *testing.B) {
 		return cipher.NewCipher(cipher.CK128)
 	}
 	chain := NewChain(cf)
-	modes.BenchmarkEncrypt(b, chain, ck, nonce)
+	modes.EncryptBenchmark(b, chain, ck, nonce)
 }

@@ -1,188 +1,105 @@
 package modes
 
 import (
-	"bytes"
-	"encoding/hex"
-	mbytes "github.com/emil2k/go-aes/util/bytes"
+	"github.com/emil2k/go-aes/cipher"
+	"github.com/emil2k/go-aes/util/bytes"
 	"github.com/emil2k/go-aes/util/rand"
-	"io"
+	"log"
+	"os"
 	"testing"
 )
 
-func TestCalculateInputBufferSize(t *testing.T) {
-	test := func(inputSize, expectedBufferSize int64) {
-		if x := calculateInputBufferSize(inputSize); x != expectedBufferSize {
-			t.Errorf("Calculating input buffer size failed with %d for input size %d expected %d", x, inputSize, expectedBufferSize)
-		}
-	}
-	bpb := int64(NBufferBlocks * BlockSize) // bytes per buffer block
-	test(1+bpb, 1)
-	test(bpb, bpb)
-}
-
-func TestCalculateBlocks(t *testing.T) {
-	test := func(size int64, isDecrypt bool, blocks int64) {
-		if x := calculateBlocks(size, isDecrypt); x != blocks {
-			t.Errorf("Calculate blocks failed for %d (decrypting? %s) should be %d was %d", size, isDecrypt, blocks, x)
-		}
-	}
-	test(1, false, 1)
-	test(17, false, 2)
-	test(16, true, 1)
-}
-
-func TestNBuffers(t *testing.T) {
-	test := func(blocks, buffers int64) {
-		if x := calculateBuffers(blocks); x != buffers {
-			t.Errorf("Calculate buffers failed for %d should be %d was %d", blocks, buffers, x)
-		}
-	}
-	test(1, 1)
-	test(int64(NBufferBlocks), 1)
-	test(int64(NBufferBlocks+1), 2)
-}
-
-// TestPadBlock test padding a block.
-func TestPadBlock(t *testing.T) {
-	block := rand.GetRand(BlockSize / 2)
-	out := make([]byte, BlockSize/2)
-	copy(out, block)
-	for i := 0; i < BlockSize/2; i++ {
-		out = append(out, byte(BlockSize/2))
-	}
-	if b := padBlock(block); !bytes.Equal(b, out) {
-		t.Errorf("Block padding failed with %s", hex.EncodeToString(b))
+func TestNewMode(t *testing.T) {
+	m := NewMode(func() *cipher.Cipher { return cipher.NewCipher(cipher.CK128) })
+	switch {
+	case m.Cf == nil:
+		t.Errorf("New mode failed cipher factory not set")
+	case m.ErrorLog == nil, m.InfoLog == nil, m.DebugLog == nil:
+		t.Errorf("New mode failed logs not set")
 	}
 }
 
-// TestUnpadBlock tests unpadding a block.
-func TestUnpadBlock(t *testing.T) {
-	out := rand.GetRand(BlockSize / 2) // expected output
-	block := make([]byte, BlockSize/2)
-	copy(block, out)
-	block = padBlock(block)
-	if b := unpadBlock(block); !bytes.Equal(b, out) {
-		t.Errorf("Block unpadding failed with %s", hex.EncodeToString(b))
+func TestInitMode(t *testing.T) {
+	m := NewMode(func() *cipher.Cipher { return cipher.NewCipher(cipher.CK128) })
+	data := rand.GetRand(int(BlockSize) * 10)
+	var offset, size uint64 = 10, uint64(len(data))
+	in := bytes.NewReadWriteSeeker(data)
+	out := bytes.NewReadWriteSeeker(make([]byte, len(data)))
+	ck := rand.GetRand(16)
+	isDecrypt := true
+	blocks := calculateBlocks(size, isDecrypt)
+	buffers := calculateBuffers(blocks)
+	bufferSize := calculateBufferSize(blocks)
+	m.InitMode(offset, size, in, out, ck, true)
+	switch {
+	case m.In == nil:
+		t.Errorf("Init mode failed input not set")
+	case m.Out == nil:
+		t.Errorf("Init mode failed output not set")
+	case m.Ck == nil:
+		t.Errorf("Init mode failed cipher key not set")
+	case m.IsDecrypt != isDecrypt:
+		t.Errorf("Init mode failed is decrypt not set")
+	case m.offset != offset:
+		t.Errorf("Init mode failed offset not set")
+	case m.size != size:
+		t.Errorf("Init mode failed input size not set")
+	case m.blocks != blocks:
+		t.Errorf("Init mode failed blocks not set correctly")
+	case m.buffers != buffers:
+		t.Errorf("Init mode failed buffers not set correctly")
+	case len(m.InBuffer) != 0 || uint64(cap(m.InBuffer)) != bufferSize:
+		t.Errorf("Init mode failed input buffer not setup correctly")
+	case uint64(len(m.OutBuffer)) != bufferSize:
+		t.Errorf("Init mode failed output buffer not setup correctly")
 	}
 }
 
-// testGetBlock configures and tests the getting of a block.
-// A nil indicates test for out of range panic.
-func testGetBlock(t *testing.T, i int64, in []byte, block []byte, isDecrypt bool) {
-	if block == nil {
-		defer func() {
-			if r := recover(); r != "Getting block that is out of range" {
-				t.Errorf("Getting out of range block panic failed, %s", r)
-			}
-		}()
-	}
-	m := NewMode(nil)
-	m.InitMode(0, int64(len(in)),
-		bytes.NewReader(in),
-		mbytes.NewReadWriteSeeker(make([]byte, len(in))),
-		nil, isDecrypt)
-	m.FillInBuffer() // getting from input buffer
-	if b := m.GetBlock(i); !bytes.Equal(b, block) {
-		t.Errorf("Get block failed with %s expected %s", hex.EncodeToString(b), hex.EncodeToString(block))
+// TestInitModeDecryptOffsetSeek tests the offset seek during initialization on the input during decryption.
+func TestInitModeDecryptOffsetSeek(t *testing.T) {
+	in := bytes.NewReadWriteSeeker(make([]byte, 100))
+	out := bytes.NewReadWriteSeeker(make([]byte, 100))
+	m := Mode{}
+	m.InitMode(10, 100, in, out, nil, true)
+	if in.Position() != 10 {
+		t.Errorf("Decrypt offset seek failed")
+	} else if out.Position() != 0 {
+		t.Errorf("Decrypt offset seek failed output position should not be offset")
 	}
 }
 
-func TestGetMiddleBlock(t *testing.T) {
-	in := make([]byte, BlockSize)
-	block := rand.GetRand(BlockSize)
-	in = append(in, block...)
-	for i := 0; i < BlockSize; i++ {
-		in = append(in, 0x00)
-	}
-	testGetBlock(t, 1, in, block, false)
-}
-
-func TestGetEndBlock(t *testing.T) {
-	in := make([]byte, 0)
-	block := rand.GetRand(BlockSize / 2)
-	in = append(in, block...)
-	block = padBlock(block)
-	testGetBlock(t, 0, in, block, false)
-}
-
-func TestGetEndCompleteBlock(t *testing.T) {
-	in := rand.GetRand(BlockSize)
-	block := make([]byte, 0)
-	for i := 0; i < BlockSize; i++ {
-		block = append(block, byte(BlockSize))
-	}
-	testGetBlock(t, 1, in, block, false)
-}
-
-func TestGetOutOfRangeBlock(t *testing.T) {
-	in := rand.GetRand(BlockSize)
-	testGetBlock(t, 2, in, nil, false)
-}
-
-func TestGetEndCompleteBlockDecrypt(t *testing.T) {
-	in := rand.GetRand(BlockSize)
-	block := make([]byte, len(in))
-	copy(block, in)
-	testGetBlock(t, 0, in, block, true)
-}
-
-func TestGetOutOfRangeBlockDecrypt(t *testing.T) {
-	in := rand.GetRand(BlockSize)
-	testGetBlock(t, 1, in, nil, true)
-}
-
-func testPutBlock(t *testing.T, i int64, inputSize int64, out []byte, block []byte, expected []byte, isDecrypt bool) {
-	if block == nil {
-		defer func() {
-			if r := recover(); r != "Putting block that is out of range" {
-				t.Errorf("Putting out of range block panic failed, %s", r)
-			}
-		}()
-	}
-	r := mbytes.NewReadWriteSeeker(make([]byte, 0)) // dummy reader, not used
-	w := mbytes.NewReadWriteSeeker(out)
-	m := NewMode(nil)
-	m.InitMode(0, inputSize, r, w, nil, isDecrypt)
-	m.PutBlock(i, block)
-	// Now retrieve put block to check
-	b := make([]byte, BlockSize)
-	_, _ = m.OutBuffer.Seek(i*int64(BlockSize), 0)
-	n, err := m.OutBuffer.Read(b)
-	if err != io.EOF && err != nil {
-		t.Errorf("Unexpected error while trying to read put block : %s", err.Error())
-	}
-	b = b[:n] // trim the block
-	if !bytes.Equal(b, expected) {
-		t.Errorf("Put block failed with %s expected %s", hex.EncodeToString(b), hex.EncodeToString(expected))
+// TestInitModeEncryptOffsetSeek tests the offset seek during initialization on the output during encryption.
+func TestInitModeEncryptOffsetSeek(t *testing.T) {
+	in := bytes.NewReadWriteSeeker(make([]byte, 100))
+	out := bytes.NewReadWriteSeeker(make([]byte, 100))
+	m := Mode{}
+	m.InitMode(10, 100, in, out, nil, false)
+	if out.Position() != 10 {
+		t.Errorf("Encrypt offset seek failed")
+	} else if in.Position() != 0 {
+		t.Errorf("Encrypt offset seek failed input position should not be offset")
 	}
 }
 
-func TestPutMiddleBlock(t *testing.T) {
-	out := make([]byte, 3*BlockSize)
-	block := rand.GetRand(BlockSize)
-	outBlock := make([]byte, len(block))
-	copy(outBlock, block)
-	testPutBlock(t, 1, int64(2*BlockSize), out, block, outBlock, false)
+func TestInitModeReset(t *testing.T) {
+	m := Mode{flushed: 5, putMax: 5}
+	in := bytes.NewReadWriteSeeker(make([]byte, 100))
+	out := bytes.NewReadWriteSeeker(make([]byte, 100))
+	m.InitMode(10, 100, in, out, nil, false)
+	switch {
+	case m.putMax != 0:
+		t.Errorf("Init mode failed put max not reset")
+	case m.flushed != 0:
+		t.Errorf("Init mode failed flushed not reset")
+	}
 }
-
-// TestPutEndBlockDecrypt tests the putting of the end block during the decryption of
-// a 3 block input that contains a half a block of padding. When putting the last block
-// to the output the half a block of padding should be removed.
-func TestPutEndBlockDecrypt(t *testing.T) {
-	out := make([]byte, 2*BlockSize+BlockSize/2)
-	outBlock := rand.GetRand(BlockSize / 2) // the last block without padding
-	block := make([]byte, len(outBlock))
-	copy(block, outBlock)
-	block = padBlock(block) // the last block with padding
-	testPutBlock(t, 2, int64(3*BlockSize), out, block, outBlock, true)
-}
-
-// TestPutEndPaddingBlockDecrypt test the putting of an end block that is all padding
-// during the decryption of a 2 block input. When putting the last block to the output
-// the block should be discarded since it is all padding.
-func TestPutEndPaddingBlockDecrypt(t *testing.T) {
-	out := make([]byte, BlockSize)
-	outBlock := make([]byte, 0)        // the last block without padding
-	block := padBlock(make([]byte, 0)) // the last block with padding
-	testPutBlock(t, 1, int64(2*BlockSize), out, block, outBlock, true)
+func TestSetLogs(t *testing.T) {
+	m := Mode{}
+	m.SetErrorLog(log.New(os.Stdout, "test", 0))
+	m.SetInfoLog(log.New(os.Stdout, "test", 0))
+	m.SetDebugLog(log.New(os.Stdout, "test", 0))
+	switch {
+	case m.ErrorLog == nil, m.InfoLog == nil, m.DebugLog == nil:
+		t.Errorf("Setting logs failed")
+	}
 }

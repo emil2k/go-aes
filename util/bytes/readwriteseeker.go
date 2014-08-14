@@ -28,6 +28,11 @@ func (b *ReadWriteSeeker) Bytes() []byte {
 	return b.data
 }
 
+// Position returns the current index, from which it will read or write to the next request.
+func (b *ReadWriteSeeker) Position() int {
+	return b.pos
+}
+
 // Truncate empties the underlying data back to the original size and capacity.
 func (b *ReadWriteSeeker) Truncate() {
 	b.data = make([]byte, b.ilen, b.icap)

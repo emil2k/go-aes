@@ -11,8 +11,8 @@ import (
 // State represents a temporary state of 16 bytes of the cipher.
 // Organized in 4x4 byte matrix, input is stored in column major order.
 type State struct {
-	high uint64 // most signficant 8 bytes of state, bytes 8-15
-	low  uint64 // least signficant 8 bytes of state, bytes 0-7
+	High uint64 // most signficant 8 bytes of state, bytes 8-15
+	Low  uint64 // least signficant 8 bytes of state, bytes 0-7
 }
 
 // NewStateFromBytes returns a new instance of state from passed byte slice.
@@ -25,7 +25,7 @@ func NewStateFromBytes(in []byte) *State {
 	for j := 8; j < 16; j++ {
 		high += uint64(in[j]) << uint((j-8)*8)
 	}
-	return &State{high: high, low: low}
+	return &State{High: high, Low: low}
 }
 
 // NewStateFromWords returns a new instance of state from passed word slice.
@@ -34,12 +34,12 @@ func NewStateFromWords(in []word.Word) *State {
 	var low, high uint64
 	low = uint64(in[0]) + uint64(in[1])<<32
 	high = uint64(in[2]) + uint64(in[3])<<32
-	return &State{high: high, low: low}
+	return &State{High: high, Low: low}
 }
 
 // String provides a string representation of a State.
-func (s *State) String() string {
-	return fmt.Sprintf("%016x%016x", s.high, s.low)
+func (s State) String() string {
+	return fmt.Sprintf("%016x%016x", s.High, s.Low)
 }
 
 // GetBytes returns a byte slice representing a byte slice.
@@ -47,7 +47,7 @@ func (s *State) String() string {
 // in the smallest index.
 func (s *State) GetBytes() []byte {
 	out := make([]byte, 16)
-	tl, th := s.low, s.high
+	tl, th := s.Low, s.High
 	for i := 0; i < 8; i++ {
 		out[i] = byte(tl)
 		tl >>= 8
@@ -61,8 +61,8 @@ func (s *State) GetBytes() []byte {
 
 // eachByte performs the passed operation on each byte in the state.
 func (s *State) eachByte(op func(in byte) byte) {
-	s.high = bytes.EachByte64(s.high, op)
-	s.low = bytes.EachByte64(s.low, op)
+	s.High = bytes.EachByte64(s.High, op)
+	s.Low = bytes.EachByte64(s.Low, op)
 }
 
 // Sub substitutes all the bytes through the forward s-box.
@@ -154,21 +154,21 @@ func (s *State) InvMixCol(i int) {
 // Xor xors input with the bytes in the state.
 // relies on Word.Xor function
 func (s *State) Xor(input State) {
-	s.low ^= input.low
-	s.high ^= input.high
+	s.Low ^= input.Low
+	s.High ^= input.High
 }
 
 // GetCol gets the ith column in the state.
 func (s *State) GetCol(i int) uint32 {
 	switch i {
 	case 0:
-		return uint32(s.low)
+		return uint32(s.Low)
 	case 1:
-		return uint32(s.low >> 32)
+		return uint32(s.Low >> 32)
 	case 2:
-		return uint32(s.high)
+		return uint32(s.High)
 	case 3:
-		return uint32(s.high >> 32)
+		return uint32(s.High >> 32)
 	default:
 		panic("column out of range")
 	}
@@ -183,13 +183,13 @@ const (
 func (s *State) SetCol(i int, col uint32) {
 	switch i {
 	case 0:
-		s.low = s.low&^setColClear0 + uint64(col)
+		s.Low = s.Low&^setColClear0 + uint64(col)
 	case 1:
-		s.low = s.low&^setColClear1 + uint64(col)<<32
+		s.Low = s.Low&^setColClear1 + uint64(col)<<32
 	case 2:
-		s.high = s.high&^setColClear0 + uint64(col)
+		s.High = s.High&^setColClear0 + uint64(col)
 	case 3:
-		s.high = s.high&^setColClear1 + uint64(col)<<32
+		s.High = s.High&^setColClear1 + uint64(col)<<32
 	}
 }
 
@@ -208,13 +208,13 @@ const (
 func (s *State) GetRow(i int) uint32 {
 	switch i {
 	case 0:
-		return uint32(s.low&getByte0 + (s.low&getByte4)>>24 + (s.high&getByte0)<<16 + (s.high&(0xFF<<32))>>8)
+		return uint32(s.Low&getByte0 + (s.Low&getByte4)>>24 + (s.High&getByte0)<<16 + (s.High&(0xFF<<32))>>8)
 	case 1:
-		return uint32((s.low&getByte1)>>8 + (s.low&getByte5)>>32 + (s.high&getByte1)<<8 + (s.high&getByte5)>>16)
+		return uint32((s.Low&getByte1)>>8 + (s.Low&getByte5)>>32 + (s.High&getByte1)<<8 + (s.High&getByte5)>>16)
 	case 2:
-		return uint32((s.low&getByte2)>>16 + (s.low&getByte6)>>40 + s.high&getByte2 + (s.high&getByte6)>>24)
+		return uint32((s.Low&getByte2)>>16 + (s.Low&getByte6)>>40 + s.High&getByte2 + (s.High&getByte6)>>24)
 	case 3:
-		return uint32((s.low&getByte3)>>24 + (s.low&getByte7)>>48 + (s.high&getByte3)>>8 + (s.high&getByte7)>>32)
+		return uint32((s.Low&getByte3)>>24 + (s.Low&getByte7)>>48 + (s.High&getByte3)>>8 + (s.High&getByte7)>>32)
 	default:
 		panic("row out of range")
 	}
@@ -235,17 +235,17 @@ func (s *State) SetRow(i int, row uint32) {
 	r3 := uint64(row) & getByte3
 	switch i {
 	case 0:
-		s.low = s.low&^setRowClear0 + r0 + r1<<24
-		s.high = s.high&^setRowClear0 + r2>>16 + r3<<8
+		s.Low = s.Low&^setRowClear0 + r0 + r1<<24
+		s.High = s.High&^setRowClear0 + r2>>16 + r3<<8
 	case 1:
-		s.low = s.low&^setRowClear1 + r0<<8 + r1<<32
-		s.high = s.high&^setRowClear1 + r2>>8 + r3<<16
+		s.Low = s.Low&^setRowClear1 + r0<<8 + r1<<32
+		s.High = s.High&^setRowClear1 + r2>>8 + r3<<16
 	case 2:
-		s.low = s.low&^setRowClear2 + r0<<16 + r1<<40
-		s.high = s.high&^setRowClear2 + r2 + r3<<24
+		s.Low = s.Low&^setRowClear2 + r0<<16 + r1<<40
+		s.High = s.High&^setRowClear2 + r2 + r3<<24
 	case 3:
-		s.low = s.low&^setRowClear3 + r0<<24 + r1<<48
-		s.high = s.high&^setRowClear3 + r2<<8 + r3<<32
+		s.Low = s.Low&^setRowClear3 + r0<<24 + r1<<48
+		s.High = s.High&^setRowClear3 + r2<<8 + r3<<32
 	default:
 		panic("row out of range")
 	}
