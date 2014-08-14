@@ -44,7 +44,9 @@ func (c *Counter) processCore() {
 // Blocks inside the buffer block are processed asynchronously on separate goroutines but processing
 // of each buffer block must be done in synchronous fashion.
 func (c *Counter) processBuffer() {
-	c.DebugLog.Println(runtime.NumCPU(), "number of CPUs")
+	cpus := runtime.NumCPU()
+	c.DebugLog.Println(cpus, "number of CPUs")
+	c.DebugLog.Println(runtime.GOMAXPROCS(cpus), "previous max procs")
 	sem := make(chan int, runtime.NumCPU())                // controls goroutine allocation
 	results := make(chan *blockPayload, resultsBufferSize) // collects individual completed results
 	var dcount uint64 = 0                                  // keep track of dispatched block processing jobs
