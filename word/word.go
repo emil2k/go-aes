@@ -2,8 +2,8 @@ package word
 
 import (
 	"fmt"
-	rj "github.com/emil2k/go-aes/rijndael"
 	"github.com/emil2k/go-aes/util/bytes"
+	rj "github.com/emil2k/go-math/rijndael"
 )
 
 // Word represents 4 bytes of data.

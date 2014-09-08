@@ -10,7 +10,6 @@ script:
         - go test -covermode=count -coverprofile=main.coverprofile github.com/emil2k/go-aes
         - go test -bench=. -benchmem -covermode=count -coverprofile=cipher.coverprofile github.com/emil2k/go-aes/cipher
         - go test -bench=. -benchmem -covermode=count -coverprofile=key.coverprofile github.com/emil2k/go-aes/key
-        - go test -bench=. -benchmem -covermode=count -coverprofile=rijndael.coverprofile github.com/emil2k/go-aes/rijndael
         - go test -bench=. -benchmem -covermode=count -coverprofile=state.coverprofile github.com/emil2k/go-aes/state
         - go test -bench=. -benchmem -covermode=count -coverprofile=word.coverprofile github.com/emil2k/go-aes/word
         - go test -bench=. -benchmem -covermode=count -coverprofile=modes.coverprofile github.com/emil2k/go-aes/modes

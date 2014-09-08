@@ -1,9 +1,9 @@
 package key
 
 import (
-	rj "github.com/emil2k/go-aes/rijndael"
 	"github.com/emil2k/go-aes/util/bytes"
 	"github.com/emil2k/go-aes/word"
+	rj "github.com/emil2k/go-math/rijndael"
 )
 
 // Key represents a key and maintains the state of while a cipher key is expanded

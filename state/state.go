@@ -3,9 +3,9 @@ package state
 import (
 	"fmt"
 
-	rj "github.com/emil2k/go-aes/rijndael"
 	"github.com/emil2k/go-aes/util/bytes"
 	"github.com/emil2k/go-aes/word"
+	rj "github.com/emil2k/go-math/rijndael"
 )
 
 // State represents a temporary state of 16 bytes of the cipher.
